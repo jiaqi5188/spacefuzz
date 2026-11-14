@@ -48,7 +48,7 @@ def test_only_real_changes_are_numbered():
         ("sleep", "new"), ("EVA", "resized"), ("rest", "new"), ("EVA", "split")]
     legend = pb.legend(blocks)
     assert legend[0] == "① + nap 10:00, 1 h 30 min"
-    assert legend[1] == "② EVA 10:00, 6 h 30 min -> 11:30, 2 h 15 min"
+    assert legend[1] == "② EVA 10:00, 6 h 30 min → 11:30, 2 h 15 min"
     assert legend[3] == "④ EVA part 2 14:45, 2 h 15 min (split)"
 
 
@@ -60,7 +60,7 @@ def test_high_load_move_is_numbered_knock_on_move_is_not():
     meal = next(b for b in blocks if b["type"] == "meal")
     assert eva["status"] == "moved" and eva.get("n")
     assert meal["status"] == "moved" and not meal.get("n")
-    assert "EVA 10:00 -> 15:30 (moved +5 h 30 min)" in " ".join(pb.legend(blocks))
+    assert "EVA 10:00 → 15:30 (moved +5 h 30 min)" in " ".join(pb.legend(blocks))
 
 
 def test_removed_task_fades_out():
@@ -85,12 +85,12 @@ def test_risk_states_two_layers_and_safer_option():
     from tests.test_app import fake_adjust
     st = pb.risk_states(fake_adjust())
     assert st["before"]["text"] == "21.0%" and st["before"]["status"] == "red"
-    assert "reported to the ground flight surgeon" in st["before"]["chip"]
+    assert st["before"]["chip"] == "Original: HIGH · ground surgeon"
     assert st["after"]["text"] == "4.5%" and st["after"]["status"] == "yellow"
-    assert st["after"]["chip"] == "Adjusted plan: MEDIUM · crew reminder"
-    assert "0.1%" in st["safer"] and "today only" in st["safer"]
+    assert st["after"]["chip"] == "MEDIUM · crew reminder"
+    assert "0.1%" in st["safer"] and "today only" in st["safer_tip"]
     red = pb.risk_states(fake_adjust(after=0.3232, rating_after="HIGH", ground=True))
-    assert red["after"]["chip"] == "Adjusted plan: HIGH · still red, report to ground"
+    assert red["after"]["chip"] == "HIGH · still red, ground surgeon"
 
 
 def test_html_modes():
@@ -104,7 +104,8 @@ def test_html_modes():
     assert 'data-state="play"' in play and "2000" in play and "4000" in play
     assert 'data-testid="plan-board-done"' in mk(final)
     assert 'data-testid="plan-board-done"' not in mk(play) + mk(idle)
-    assert "Adjusted plan: MEDIUM · crew reminder" in final and "4.5%" in final
+    assert "MEDIUM · crew reminder" in final and "4.5%" in final
+    assert "<span class=\"pb\">Plan board · </span>adjusted plan" in final
     assert "① + nap 10:00, 1 h 30 min" in final
     assert "http://" not in final and "https://" not in final
     assert str(int(ui_config.PACES[ui_config.PACE]["board_s"] * ui_config.ANIM_SCALE * 1000)) \
@@ -164,8 +165,8 @@ def test_midday_risk_states():
                                 "rating_after": "MEDIUM", "escalate_to_ground": False,
                                 "changes": ["Cancel the afternoon EVA (14:45)"]})
     assert rs["before"]["text"] == "100.0%" and rs["before"]["status"] == "red"
-    assert rs["before"]["chip"] == "Afternoon as planned: HIGH · report to ground"
-    assert rs["after"]["chip"] == "Adjusted afternoon: MEDIUM · crew reminder"
+    assert rs["before"]["chip"] == "As planned: HIGH · ground surgeon"
+    assert rs["after"]["chip"] == "Afternoon: MEDIUM · crew reminder"
     assert rs["safer"] is None and rs["changed"]
 
 

@@ -43,6 +43,10 @@
 
 .stApp, [data-testid="stAppViewContainer"] { background: var(--sf-bg); color: var(--sf-ink); }
 [data-testid="stHeader"] { background: transparent; }
+/* the transparent header lies over the top bar: let the pointer through to it (the (i)
+   badge), except on the header's own controls (MENU button) */
+[data-testid="stHeader"], [data-testid="stHeader"] * { pointer-events:none !important; }
+[data-testid="stHeader"] button, [data-testid="stHeader"] button *, [data-testid="stHeader"] a { pointer-events:auto !important; }
 [data-testid="stSidebar"] { background: var(--sf-panel); border-right: 1px solid var(--sf-line); }
 ::selection { background: var(--sf-green-glow); color: var(--sf-ink); }
 * { scrollbar-width: thin; scrollbar-color: var(--sf-line) transparent; }
@@ -125,9 +129,29 @@
 /* the top bar leaves room on its left for the menu button (Streamlit's sidebar toggle) */
 .sf-topbar { background:var(--sf-panel-2); border:1px solid var(--sf-line); border-radius:10px;
   padding:9px 18px 9px 126px; font-size:18px; font-weight:600; display:flex; gap:22px;
-  flex-wrap:nowrap; align-items:center; white-space:nowrap; overflow:hidden; height:48px; }
+  flex-wrap:nowrap; align-items:center; white-space:nowrap; overflow:hidden; height:48px;
+  container-type:inline-size; }
+/* menu open (narrower main area): smaller top-bar items, so the subtitle is not cut off */
+@container (max-width: 1200px) { .sf-topbar > span:not(.sub):not(.sf-badge) { font-size:15px; }
+  .sf-topbar > span { margin-right:-8px; } }
 .sf-topbar .sub { font-size:13px; color:var(--sf-muted); font-weight:400; min-width:0;
   overflow:hidden; text-overflow:ellipsis; }
+.sf-small { font-size:12px; color:var(--sf-muted); }
+/* indicator rows: name and value never wrap inside; in a narrow panel (menu open) the
+   baseline moves under the value instead of breaking the line */
+[data-testid="indicators"] { container-type:inline-size; }
+.sf-ind-name { white-space:nowrap; }
+.sf-ind-val { white-space:nowrap; text-align:right; }
+@container (max-width: 340px) { .sf-ind .base { display:block; } }
+/* Streamlit's own help icon ("?") drawn as our (i), so one mark means "more here" */
+[data-testid="stTooltipIcon"] svg { display:none !important; }
+[data-testid="stTooltipIcon"] button::after { content:"ⓘ"; color:var(--sf-muted);
+  font-size:13px; line-height:1; }
+[data-testid="stTooltipIcon"] button:hover::after { color:var(--sf-ink); }
+.sf-footer { margin:14px 0 4px; padding-top:8px; border-top:1px solid var(--sf-grid); }
+.sf-badge { font-size:12px; font-weight:500; color:var(--sf-yellow); flex:none;
+  border:1px solid color-mix(in srgb, var(--sf-yellow) 40%, transparent); border-radius:4px;
+  padding:1px 6px; letter-spacing:.02em; }
 .sf-panel { background:var(--sf-panel); border:1px solid var(--sf-line); border-radius:10px;
   padding:12px 16px; margin-bottom:10px; }
 .sf-h { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--sf-muted);
@@ -135,6 +159,31 @@
 .sf-tag { font-size:11px; color:var(--sf-yellow); font-weight:400; border-radius:4px;
   border:1px solid color-mix(in srgb, var(--sf-yellow) 33%, transparent);
   padding:0 4px; margin-left:6px; }
+
+/* ---------------------------------------------------------------- tips (i) */
+/* tip:start  (shared with the iframes: ui/theme.tip_css) */
+/* An (i) next to a short line holds its explanation (ui/common.tip): shown on hover and on
+   keyboard focus. The note is absolutely positioned without coordinates, so it sits at the
+   (i) and scrolls with the page; the (i) itself is not positioned, so the note's containing
+   block lies outside the panel and a panel that clips its overflow (top bar, scrolling
+   panels) does not cut it off. (A fixed position was tried first: Chrome then ignores the
+   page's scroll offset and the note drifts off screen.) .l opens it to the left, .u upwards. */
+/* inline, glued to the previous word: an inline-block would allow a line break before
+   the (i) and leave it alone on the next line */
+.sf-tip { display:inline; margin-left:4px; color:var(--sf-muted); cursor:help;
+  font-size:.85em; font-weight:400; line-height:1; vertical-align:baseline; outline:none;
+  text-transform:none; letter-spacing:normal; font-style:normal; }
+.sf-tip:hover, .sf-tip:focus-visible { color:var(--sf-ink); }
+.sf-tip:hover::after, .sf-tip:focus::after { content:attr(data-tip); position:absolute; z-index:9999;
+  margin:1.4em 0 0 -1em; max-width:300px; width:max-content; white-space:normal;
+  background:var(--sf-panel-2); color:var(--sf-ink); border:1px solid var(--sf-line-strong);
+  border-radius:6px; padding:7px 10px; font:400 12px/1.45 system-ui,-apple-system,sans-serif;
+  box-shadow:0 6px 18px rgba(0,0,0,.55); pointer-events:none; }
+.sf-tip.l:hover::after, .sf-tip.l:focus::after { transform:translateX(calc(-100% + 2em)); }
+.sf-tip.u:hover::after, .sf-tip.u:focus::after { margin-top:-1.4em; transform:translateY(-100%); }
+.sf-tip.l.u:hover::after, .sf-tip.l.u:focus::after {
+  transform:translate(calc(-100% + 2em), -100%); }
+/* tip:end */
 
 /* ---------------------------------------------------------------- status shapes */
 

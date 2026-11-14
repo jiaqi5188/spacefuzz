@@ -27,6 +27,7 @@ from spacefuzz.fuzzing import mutator as mu
 from spacefuzz.core import state
 import ui_config
 from ui import checkin_store
+from ui.common import TIP_MARK
 
 PAL = ui_config.COLOR
 SURF = ui_config.SURFACE
@@ -130,23 +131,33 @@ def heatmap_figure(res: dict, height: int = 400) -> go.Figure:
         if at0:
             notes.insert(0, f"guided boundary {at0[0]:.2f} h · scan {sx:.2f} h "
                             f"({minp['minutes']} min): same edge")
-    for k, text in enumerate(notes):
-        fig.add_annotation(text=text, xref="paper", yref="y", x=0, y=lo - 0.45 - 0.3 * k,
-                           xanchor="left", showarrow=False, font=dict(color=MUTED, size=10))
     _layout(fig, height)
-    fig.update_layout(title=dict(text="Crash boundary: sleep cut x EVA extension",
-                                 font=dict(size=14)), margin=dict(b=90))
+    fig.update_layout(title=dict(text="Crash boundary", font=dict(size=14)), margin=dict(b=90))
     g, r = config.RISK_GREEN_BELOW, config.RISK_RED_ABOVE
-    fig.add_annotation(text=f"cell = risk, {hm.get('samples_per_cell', 0):,} runs each: green < "
-                            f"{g:.0%}, yellow {g:.0%}-{r:.0%}, red > {r:.0%} (illustrative)",
-                       xref="paper", yref="paper", x=0, y=1.0, yanchor="bottom", xanchor="left",
-                       showarrow=False, font=dict(color=MUTED, size=10))
+    n = hm.get("samples_per_cell", 0)
+    fig.add_annotation(text=f"cell = risk of {n:,} runs", xref="paper", yref="paper", x=0,
+                       y=1.0, yanchor="bottom", xanchor="left", showarrow=False,
+                       font=dict(color=MUTED, size=10))
+    chart_tip(fig, "<br>".join([f"Each cell: share of {n:,} simulations that crash after cutting "
+                                f"last night's sleep (x) and extending the EVA (y).",
+                                f"Green < {g:.0%}, yellow {g:.0%}-{r:.0%}, red > {r:.0%}.",
+                                "Ring: where the guided track found the edge. Star: the smallest "
+                                "change that turns the plan red."] + notes))
     fig.update_xaxes(title_text="Sleep cut last night (h)", dtick=0.5)
-    fig.update_yaxes(title_text="EVA extension (h)", tickvals=exts,
-                     range=[lo - 0.25 - (0.3 * len(notes) + 0.2 if notes else 0), hi + 0.25])
+    fig.update_yaxes(title_text="EVA extension (h)", tickvals=exts, range=[lo - 0.25, hi + 0.25])
     if len(exts) == 1 and not (hist and any(hist.get("eva_extend_h", []))):
         fig.update_yaxes(title_text="no EVA in this plan", showticklabels=False)
     return fig
+
+
+def chart_tip(fig: go.Figure, text: str, x: float = 1.0, y: float = 1.0,
+             xanchor: str = "right", yanchor: str = "bottom") -> None:
+    """An (i) on a chart: the explanation shows on hover (same idea as ui.common.tip)."""
+    if text:
+        fig.add_annotation(text=TIP_MARK, hovertext=text, xref="paper", yref="paper", x=x, y=y,
+                           xanchor=xanchor, yanchor=yanchor, showarrow=False,
+                           font=dict(color=MUTED, size=14),
+                           hoverlabel=dict(bgcolor=BG, font=dict(color=INK, size=12)))
 
 
 # ---------------------------------------------------------------- trajectory fan
@@ -157,9 +168,9 @@ FAN_FIELDS = {"heart_rate": "Heart rate (bpm)", "cognitive_fatigue": "Cognitive 
 def _threshold(field: str, baseline: state.Baseline) -> tuple[float, str]:
     if field == "heart_rate":
         v = config.CARDIO_HR_MAX_FRACTION * state.max_heart_rate(baseline)
-        return v, f"{v:.0f} bpm = {config.CARDIO_HR_MAX_FRACTION:.0%} of max HR (illustrative)"
+        return v, f"{v:.0f} bpm"
     v = config.COG_FATIGUE_ABOVE
-    return v, f"fatigue {v:.0f} (illustrative)"
+    return v, f"{v:.0f}"
 
 
 def _group(traces: dict, field: str, minutes: list, crashed: int) -> tuple[list, list]:
@@ -185,7 +196,7 @@ def fan_figure(res: dict, field: str, baseline: state.Baseline, height: int = 35
     n = len(panels)
     shown = len(prob["traces"]["crashed"])
     titles = [f"{name} · {100 * p:.1f}% {r}<br><span style='font-size:11px'>"
-              f"{sum(tr['crashed'])} of {len(tr['crashed'])} shown crashed</span>"
+              f"{sum(tr['crashed'])} / {len(tr['crashed'])} crashed</span>"
               for name, tr, _, _, p, r in panels]
     fig = make_subplots(rows=1, cols=n, shared_yaxes=True, subplot_titles=titles,
                         horizontal_spacing=0.04)
@@ -204,13 +215,17 @@ def fan_figure(res: dict, field: str, baseline: state.Baseline, height: int = 35
                                  line=dict(color=INK, width=2),
                                  hovertemplate="median %{y:.0f}<extra></extra>"), row=1, col=k)
         fig.add_hline(y=thr, line=dict(color=PAL["yellow"], width=1.5, dash="dot"), row=1, col=k)
-    fig.add_annotation(text=f"threshold: {label}", xref="paper", yref="y", x=0, y=thr,
+    fig.add_annotation(text=f"limit {label}", xref="paper", yref="y", x=0, y=thr,
                        xanchor="left", yanchor="bottom", showarrow=False,
                        font=dict(color=PAL["yellow"], size=11))
     _layout(fig, height)
-    fig.update_layout(title=dict(text=f"{FAN_FIELDS[field]}: {shown} of {prob['samples']:,} "
-                                      f"simulations each", font=dict(size=14), y=0.98),
-                      margin=dict(t=85))
+    fig.update_layout(title=dict(text=f"{FAN_FIELDS[field]} · {shown} runs shown",
+                                 font=dict(size=14), y=0.98), margin=dict(t=85))
+    why = (f"{config.CARDIO_HR_MAX_FRACTION:.0%} of the maximum heart rate"
+           if field == "heart_rate" else "cognitive fatigue threshold")
+    chart_tip(fig, f"{shown} of the {prob['samples']:,} simulations of each plan; red lines "
+                   f"crashed, white is the median.<br>Dotted line: limit {label} ({why}).",
+              y=1.12)
     ticks = list(range(6, 31, 3))
     fig.update_xaxes(tickvals=ticks, ticktext=[f"{t % 24:02d}:00" for t in ticks])
     return fig
@@ -256,26 +271,25 @@ def trend_series(name: str, key: str, checkin_json: str | None = None) -> dict:
         lim = b.resting_hr + config.ACT_NOW_HR_ABOVE_BASELINE_BPM
         s.update(values=list(h["resting_hr"]) + [round(hr_now, 1)], unit="bpm",
                  baseline=b.resting_hr, threshold=lim,
-                 threshold_label=f"act at {lim:.0f} bpm (illustrative)")
+                 threshold_label=f"act at {lim:.0f} bpm")
     elif key == "blood_pressure":
         s.update(values=list(h["sbp"]) + [c.systolic_bp], values2=list(h["dbp"]) + [c.diastolic_bp],
                  unit="mmHg", baseline=b.sbp, baseline2=b.dbp,
                  threshold=config.ACT_NOW_BP_RANGE["sbp"][1],
                  threshold2=config.ACT_NOW_BP_RANGE["dbp"][1],
                  threshold_label=f"upper limits {config.ACT_NOW_BP_RANGE['sbp'][1]:.0f} / "
-                                 f"{config.ACT_NOW_BP_RANGE['dbp'][1]:.0f} mmHg (illustrative)")
+                                 f"{config.ACT_NOW_BP_RANGE['dbp'][1]:.0f} mmHg")
     elif key == "blood_glucose":
         s.update(values=list(h["glucose"]) + [c.blood_glucose], unit="mg/dL", baseline=b.glucose,
                  threshold=config.GLUCOSE_LOW_MG_DL,
-                 threshold_label=f"low below {config.GLUCOSE_LOW_MG_DL:.0f} mg/dL (illustrative)")
+                 threshold_label=f"low < {config.GLUCOSE_LOW_MG_DL:.0f} mg/dL")
     elif key == "sleep":
         nights = list(c.sleep_last_3_nights_h)          # the check-in owns the last 3 nights
         past = list(h["sleep_h"])
         past = past[:len(past) - (len(nights) - 1)] if len(nights) > 1 else past
         s.update(values=past + nights, unit="h",
                  baseline=b.sleep_h, threshold=config.ACT_NOW_SLEEP_SHORT_H,
-                 threshold_label=f"short below {config.ACT_NOW_SLEEP_SHORT_H:.0f} h "
-                                 f"(illustrative)")
+                 threshold_label=f"short < {config.ACT_NOW_SLEEP_SHORT_H:.0f} h")
     else:
         today = c.reaction_time_ms if c.reaction_time_ms is not None else rt_model
         s.update(values=list(h["reaction_ms"]) + [today], unit="ms", baseline=b.reaction_ms)
@@ -309,15 +323,16 @@ def trend_figure(s: dict, height: int = 230, today_status: str = "green") -> go.
             fig.add_hline(y=s[tk], line=dict(color=PAL["yellow"], width=1, dash="dot"))
     _layout(fig, height)
     fig.update_layout(margin=dict(l=40, r=10, t=30, b=55),
-                      title=dict(text=f"{s['label']} ({s['unit']}): synthetic example history, "
-                                      f"14 days + today",
+                      title=dict(text=f"{s['label']} ({s['unit']}) · 14 days",
                                  font=dict(size=12)),
                       legend=dict(orientation="h", y=-0.28, x=0, font=dict(color=MUTED)))
     ticks = list(range(s["days"][0], 1, 2))
     fig.update_xaxes(tickvals=ticks, ticktext=[("today" if t == 0 else str(t)) for t in ticks])
     if s.get("threshold_label"):
-        fig.add_annotation(text=s["threshold_label"], xref="paper", yref="paper", x=1, y=1.02,
+        fig.add_annotation(text=s["threshold_label"], xref="paper", yref="paper", x=0.94, y=1.02,
                            xanchor="right", showarrow=False, font=dict(color=PAL["yellow"], size=10))
+    chart_tip(fig, "Synthetic example history (14 days) and today from the check-in. Dashed: "
+                   "personal baseline. Dotted: the act-now threshold.", y=1.0)
     return fig
 
 
@@ -381,7 +396,6 @@ def show(static: dict, res: dict | None, shown: int, frames: list,
     if res is None or not frames or shown < len(frames) or \
             res["forecast"].get("risk_rating") == "UNKNOWN":
         st.html(f'<div data-testid="charts-pending" class="sf-pending sf-chart-slot'
-                f'{" stacked" if stacked else ""}">Crash boundary map and trajectory fan appear '
-                f'after the forecast.</div>')         # same height as the charts: no jump
+                f'{" stacked" if stacked else ""}">Charts appear after the forecast.</div>')         # same height as the charts: no jump
         return
     _result_charts(res, stacked)

@@ -8,7 +8,10 @@ import streamlit as st
 
 import ui_config
 from ui import charts, data_page as dp, theme
-from ui.common import esc
+from ui.common import esc, tip
+
+NOTE = ("Charts are drawn from the files committed to the repository; all sources and "
+        "licences: data/SOURCES.md.")
 
 CSS = """
 <style>
@@ -39,8 +42,7 @@ def main() -> None:
     st.html(theme.page_style() + CSS)
     st.html(f'<div class="sf-topbar" data-testid="data-topbar"><span>NASA Data</span>'
             f'<span>{esc(ui_config.CREW_MEMBER_NAME)}</span><span class="sub">How real data '
-            f'enters the model. Charts are drawn from the files committed to the repository; '
-            f'all sources and licences: data/SOURCES.md.</span></div>')
+            f'enters the model{tip(NOTE, "l")}</span></div>')
     cols = st.columns(2, gap="medium")
     for i, b in enumerate(dp.blocks()):
         with cols[i % 2]:

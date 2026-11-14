@@ -92,12 +92,18 @@ def afternoon_candidates(plan: pl.Plan, checkin: st.CheckIn, cutoff: int) -> lis
         first = pm_evas[0]
         if checkin.sleep_last_night_h < config.RULE1_MIN_SLEEP_H and first.start_min < window_end:
             moved = dataclasses.replace(first, start_min=window_end)
-            tasks = adjuster.resolve([moved if t is first else t for t in plan.tasks], moved)
-            if {_key(t) for t in tasks if t.start_min < cutoff} == morning:
+            try:                                 # sleep is protected: may not fit tonight
+                tasks = adjuster.resolve([moved if t is first else t for t in plan.tasks],
+                                         moved)
+            except adjuster.SleepConflict:
+                tasks = None
+            if tasks is not None and {_key(t) for t in tasks if t.start_min < cutoff} == morning:
+                note = adjuster.personal_time_note(plan.tasks, tasks)
                 out.append(adjuster.Candidate(
                     dataclasses.replace(plan, tasks=tasks), ("after_window",),
                     (f"Start the afternoon EVA at {pl.clock(window_end)}, "
-                     f"{config.RULE1_WINDOW_H:.0f} h after waking (rule 1)",),
+                     f"{config.RULE1_WINDOW_H:.0f} h after waking (rule 1)",)
+                    + ((note,) if note else ()),
                     adjuster._cost("delay", window_end - first.start_min)))
     return sorted(out, key=lambda c: (c.cost, c.changes))
 

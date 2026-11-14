@@ -13,6 +13,13 @@ def root_css() -> str:
     return re.search(r":root\s*\{.*?\}", CSS_PATH.read_text(), re.S).group(0)
 
 
+@functools.lru_cache(maxsize=1)
+def tip_css() -> str:
+    """The (i) tip rules of styles.css (between tip:start and tip:end), for the iframes."""
+    text = CSS_PATH.read_text()
+    return text[text.index("/* tip:start"):text.index("/* tip:end */")]
+
+
 def page_style() -> str:
     """The global stylesheet (shared panel classes included) for pages other than app.py,
     whose top bar sits directly above content (no navigation row)."""

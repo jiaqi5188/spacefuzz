@@ -107,3 +107,17 @@ ASSIST_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
 ASSIST_TIMEOUT_S = 10          # one try; a slower answer falls back to the gate's message
 ASSIST_MAX_TOKENS = 200
 ASSIST_MAX_CHARS = 400         # longer answers are cut
+
+# The one "illustrative" note (top bar badge, (i) tip) instead of a label on every threshold.
+ILLUSTRATIVE_NOTE = ("Thresholds and model parameters are illustrative, not clinical limits. "
+                     "What the forecast supports is the ranking of the risks and the change "
+                     "before / after an adjustment. Blood pressure, glucose and the 14-day "
+                     "history are synthetic examples. Sources per indicator: Indicators (wiki).")
+
+# Data sources line at the bottom of the dashboard and of each role screen (grey small text).
+DATA_FOOTER = "Data: NASA OSDR · NASA RadLab (MSL-RAD, DLR DosTel2) · NOAA GOES · WESAD"
+
+# Plan board iframe height [px] (ui/plan_board.py), measured 2026-11-15 as the lowest content
+# bottom + 10 px padding: a dashboard column needs up to 274 (narrow window, menu open: three
+# legend lines and the safer option); a full-width board (crew screen, midday page) up to 237.
+BOARD_HEIGHT = {"column": 280, "wide": 245}

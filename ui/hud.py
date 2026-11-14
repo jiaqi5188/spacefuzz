@@ -27,7 +27,7 @@ from spacefuzz.core import state
 import ui_config
 from ui import live_frame, theme
 from spacefuzz.core.plan_types import PlanType
-from ui.common import clock, esc as _esc
+from ui.common import clock, esc as _esc, tip
 
 FRAME_SELECTOR = 'iframe[srcdoc*="sf-hud"]'
 HEIGHT_PX = 250
@@ -119,7 +119,8 @@ def mission_series(adj: dict, baseline: state.Baseline) -> dict | None:
                        "p50": p50, "tail": tail, "status": status}
     return {"task": task, "minutes": [mins[k] for k in idx], "gauges": gauges,
             "note": "Median of all forecast runs of the adjusted plan, not live telemetry; "
-                    "the status also counts the worst 5% of runs; thresholds illustrative."}
+                    "the colour also counts the worst 5% of runs; thresholds illustrative.",
+            "note_short": "Forecast median · not live telemetry"}
 
 
 # ---------------------------------------------------------------- HTML
@@ -218,18 +219,17 @@ def html_doc(adj: dict | None, baseline: state.Baseline, start_min: int,
             f'<div class="g" id="g-{k}"><div class="l">{_esc(g["label"])}</div>'
             f'<div class="v">{g["p50"][0]:.{1 if k == "core_temp" else 0}f}'
             f'<span class="u">{_esc(g["unit"])}</span></div>'
-            f'<div class="t">worst 5%: <span class="tail">'
-            f'{g["tail"][0]:.{1 if k == "core_temp" else 0}f}</span>{_sep(g["unit"])}'
-            f'{_esc(g["unit"])} (colour) · limit '
-            f'{g["threshold"]:.{1 if k == "core_temp" else 0}f}{_sep(g["unit"])}'
-            f'{_esc(g["unit"])}</div></div>'
+            f'<div class="t">worst 5% <span class="tail">'
+            f'{g["tail"][0]:.{1 if k == "core_temp" else 0}f}</span> · limit '
+            f'{g["threshold"]:.{1 if k == "core_temp" else 0}f}</div></div>'
             for k, g in series["gauges"].items())
         cd_html = (f'<div class="cd"><div class="l" style="font-size:11px;color:var(--sf-ink)">'
                    f'TIME TO RISK</div><div class="v" id="cd">'
                    f'{countdown(risk, task["start"])}</div></div>' if risk is not None else
                    '<div class="cd"><div style="font-size:11px;color:var(--sf-ink)">TIME TO RISK'
-                   '</div><div style="font-size:14px;color:var(--sf-muted)">none (risk at or below '
-                   f'{config.RISK_RED_ABOVE:.0%})</div></div>')
+                   '</div><div style="font-size:14px;color:var(--sf-muted)">none'
+                   f'{tip(f"Risk at or below {config.RISK_RED_ABOVE:.0%}: no crash time.", "l")}'
+                   '</div></div>')
         pa = adj.get("plan_adjustment") or {}
         ground = ('<div class="mode" style="color:%s">PLAN STILL RED · REPORTED TO GROUND</div>'
                   % pal["red"] if pa.get("escalate_to_ground") else "")
@@ -239,7 +239,8 @@ def html_doc(adj: dict | None, baseline: state.Baseline, start_min: int,
                 f'<div class="clock" id="clock">{clock(task["start"])}</div></div>{ground}'
                 f'<div class="row"><div class="dir" id="dir">{_esc(line)}</div>{cd_html}</div>'
                 f'<div class="gauges">{g_html}</div>'
-                f'<div class="note">{_esc(series["note"])}</div>')
+                f'<div class="note">{_esc(series["note_short"])}{tip(series["note"], "u")}'
+                f'</div>')
         js_series = json.dumps({"minutes": series["minutes"],
                                 "gauges": {k: {"p50": g["p50"], "tail": g["tail"],
                                                "status": g["status"]}
@@ -247,7 +248,7 @@ def html_doc(adj: dict | None, baseline: state.Baseline, start_min: int,
     js = _JS % {"series": js_series, "risk": "null" if risk is None else risk,
                 "ms": int(ui_config.HUD_S * ui_config.ANIM_SCALE * 1000),
                 "colors": json.dumps(pal)}
-    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{css}</style></head>
+    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{theme.tip_css()}{css}</style></head>
 <body><div id="sf-hud" data-testid="hud-figure" data-state="play">{body}</div>
 <script>{js}</script></body></html>"""
 

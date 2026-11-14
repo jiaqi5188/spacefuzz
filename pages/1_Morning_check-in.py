@@ -14,7 +14,7 @@ from spacefuzz.core import state
 import ui_config
 from ui import checkin_store as cs
 from ui import assist, nav, reaction, theme
-from ui.common import esc
+from ui.common import brief_html, esc, illustrative_badge, neutral_nap, tip
 
 SAMN_PERELLI = {1: "1 fully alert, wide awake", 2: "2 very lively, responsive",
                 3: "3 okay, somewhat fresh", 4: "4 a little tired, less than fresh",
@@ -43,14 +43,15 @@ def gate_html(ci: state.CheckIn) -> str:
     color = {"ok": "green", "degraded": "yellow", "untrusted": "red"}[gate.status]
     issues = "".join(f"<div>• {esc(i.field)}: {esc(i.detail)}</div>" for i in gate.issues)
     items = advice.act_now(ci, state.make_baseline(), gate=gate)
-    act = "".join(f"<div>• {esc(a.text)}</div>" for a in items) or \
+    act = "".join(f"<div>• {brief_html(neutral_nap(a.text))}</div>" for a in items) or \
         "<div>Nothing to act on now.</div>"
     msg = (f'<div style="margin-top:6px">{esc(gate.message)}</div>'
            if not gate.can_forecast else "")
     return (f'<div class="sf-panel" data-testid="checkin-gate"><div class="sf-h">Data quality'
             f'</div><div style="color:var(--sf-{color});font-weight:700">Data quality: '
             f'{gate.status}</div>{issues}{msg}<div class="sf-h" style="margin-top:10px">'
-            f'Act now (preview)</div>{act}</div>')
+            f'Act now (preview)</div>{act}<div class="sf-small" data-testid="act-now-note" '
+            f'style="margin-top:6px">{esc(FINAL_ADVICE)}</div></div>')
 
 
 def ai_hint(ci: state.CheckIn) -> None:
@@ -72,6 +73,32 @@ def ai_hint(ci: state.CheckIn) -> None:
                 f'{esc(assist.LABEL)}</div><div>{esc(text)}</div></div>')
 
 
+FINAL_ADVICE = "Final advice follows the adjusted plan on the dashboard."
+PREFILLED = ("Pre-filled with this scenario's synthetic example values: edit, save, then press "
+             "Run Forecast on the dashboard.")
+
+
+# One short visible line per section (plan 4.1: "how to measure" stays visible); the full
+# procedure is in the heading's (i).
+HOW_SHORT = {
+    "bp": "Seated, 5 min rest, average of 2 readings.",
+    "glucose": "Fingerstick before breakfast.",
+    "sleep": "Wristband record; otherwise your own estimate.",
+    "mood": "Your rating right now.",
+    "fatigue": "Pick the line that fits you now.",
+    "food": "Recorded only; not used by the forecast yet.",
+}
+
+
+def section(title: str, how: str, example: bool = False, short: str = "") -> None:
+    """A form section heading with the full "how to measure" note in its (i), and a short
+    visible version of it underneath."""
+    tag = " <span class='sf-tag'>example</span>" if example else ""
+    st.markdown(f"**{title}**{tip(how)}{tag}", unsafe_allow_html=True)
+    if short:
+        st.caption(short)
+
+
 def main() -> None:
     st.set_page_config(page_title="SpaceFuzz · Morning check-in", layout="wide",
                        initial_sidebar_state="collapsed")
@@ -79,55 +106,50 @@ def main() -> None:
     name = st.session_state.get("active_scenario", "main_sleep_debt_eva")
     cur = cs.current(name)
     st.html(f'<div class="sf-topbar" data-testid="checkin-topbar"><span>Morning check-in'
-            f'</span><span>{esc(ui_config.CREW_MEMBER_NAME)}</span><span class="sub">'
-            f'{esc(ui_config.SCENARIOS.get(name, name))} · pre-filled with this scenario\'s synthetic '
-            f'example values; edit, save, then press Run Forecast on the dashboard</span></div>')
+            f'</span><span>{esc(ui_config.CREW_MEMBER_NAME)}</span>{illustrative_badge()}'
+            f'<span class="sub">{esc(ui_config.SCENARIOS.get(name, name))} · synthetic example '
+            f'values{tip(PREFILLED, "l")}</span></div>')
     nav.link_dashboard(label="Next: Dashboard, press Run Forecast there")
 
     left, right = st.columns([3, 2], gap="large")
     with left:
         with st.form("checkin"):
-            st.markdown("**Blood pressure** <span class='sf-tag'>example data</span>",
-                        unsafe_allow_html=True)
+            section("Blood pressure", HOW["bp"], example=True, short=HOW_SHORT["bp"])
             c1, c2 = st.columns(2)
-            sbp = c1.number_input("Systolic (mmHg)", 40.0, 300.0, float(cur["systolic_bp"]), 1.0)
+            sbp = c1.number_input("Systolic (mmHg)", 40.0, 300.0, float(cur["systolic_bp"]), 1.0,
+                                  format="%.0f")
             dbp = c2.number_input("Diastolic (mmHg)", 20.0, 200.0, float(cur["diastolic_bp"]),
-                                  1.0)
-            st.caption(HOW["bp"])
-            st.markdown("**Blood glucose** <span class='sf-tag'>example data</span>",
-                        unsafe_allow_html=True)
+                                  1.0, format="%.0f")
+            section("Blood glucose", HOW["glucose"], example=True, short=HOW_SHORT["glucose"])
             glu = st.number_input("Blood glucose (mg/dL)", 1.0, 800.0, float(cur["blood_glucose"]),
-                                  1.0)
-            st.caption(HOW["glucose"])
-            st.markdown("**Sleep**")
+                                  1.0, format="%.0f")
+            section("Sleep", HOW["sleep"], short=HOW_SHORT["sleep"])
             n3 = list(cur["sleep_last_3_nights_h"])
             c1, c2, c3 = st.columns(3)
             s_last = c1.number_input("Sleep last night (h)", 0.0, 24.0,
-                                     float(cur["sleep_last_night_h"]), 0.1)
-            s_prev = c2.number_input("Night before (h)", 0.0, 24.0, float(n3[1]), 0.1)
-            s_prev2 = c3.number_input("Two nights before (h)", 0.0, 24.0, float(n3[0]), 0.1)
-            st.caption(HOW["sleep"])
+                                     float(cur["sleep_last_night_h"]), 0.1, format="%.1f")
+            s_prev = c2.number_input("Night before (h)", 0.0, 24.0, float(n3[1]), 0.1,
+                                     format="%.1f")
+            s_prev2 = c3.number_input("Two nights before (h)", 0.0, 24.0, float(n3[0]), 0.1,
+                                      format="%.1f")
             eff = st.number_input("Sleep efficiency (%)", 0.0, 100.0,
-                                  float(cur["sleep_efficiency_pct"]), 1.0)
-            st.caption(HOW["efficiency"])
-            st.markdown("**Mood and stress**")
+                                  float(cur["sleep_efficiency_pct"]), 1.0, format="%.0f",
+                                  help=HOW["efficiency"])
+            section("Mood and stress", HOW["mood"], short=HOW_SHORT["mood"])
             c1, c2 = st.columns(2)
             mood = c1.slider("Mood (1-5)", 1, 5, int(cur["mood"]))
             stress = c2.slider("Stress (1-5)", 1, 5, int(cur["stress"]))
-            st.caption(HOW["mood"])
-            st.markdown("**Fatigue**")
+            section("Fatigue", HOW["fatigue"], short=HOW_SHORT["fatigue"])
             fat = st.select_slider("Fatigue (Samn-Perelli 1-7)", list(SAMN_PERELLI),
                                    value=int(cur["fatigue_score"]), format_func=SAMN_PERELLI.get)
-            st.caption(HOW["fatigue"])
-            st.markdown("**Food and water**")
+            section("Food and water", HOW["food"], short=HOW_SHORT["food"])
             food = cur.get("food_water_intake", {})
             c1, c2 = st.columns(2)
             meals = c1.selectbox("Meals (24 h)", MEALS,
                                  index=MEALS.index(food.get("meals", "normal"))
                                  if food.get("meals", "normal") in MEALS else 0)
             water = c2.number_input("Water (L, 24 h)", 0.0, 10.0,
-                                    float(food.get("water_l_24h", 2.0)), 0.1)
-            st.caption(HOW["food"])
+                                    float(food.get("water_l_24h", 2.0)), 0.1, format="%.1f")
             # stays at the bottom of the screen while the form is in view (ui/styles.css)
             saved = st.form_submit_button("Save check-in", type="primary", key="save_checkin",
                                           icon=":material/save:")
@@ -141,10 +163,10 @@ def main() -> None:
             cs.save(name, data)
 
     with right:
-        st.markdown("**Reaction time**")
-        st.caption("Tap or press space when the counter appears. The mean of your responses "
-                   "is written to the check-in automatically; in a mission this value comes "
-                   "from the dedicated test device, this is its simulation.")
+        section("Reaction time", "The mean of your responses is written to the check-in "
+                "automatically. In a mission this value comes from the dedicated test device; "
+                "this is its simulation.")
+        st.caption("Tap or press space when the counter appears.")
         label = st.radio("Test length", list(ui_config.REACTION_TEST_S), horizontal=True,
                          label_visibility="collapsed")
         result = reaction.run(ui_config.REACTION_TEST_S[label], key=f"reaction_{name}")
@@ -155,11 +177,13 @@ def main() -> None:
             if s["mean_ms"] is not None:
                 cs.save(name, {**cs.current(name), "reaction_time_ms": s["mean_ms"]})
         if s:
+            detail = (f"{s['n_valid']} responses. Lapses (>= {ui_config.REACTION_LAPSE_MS} ms "
+                      f"or missed): {s['lapses']}, of which missed {s['misses']}. False starts: "
+                      f"{s['false_starts']}. Implausible (outside the quality-gate range): "
+                      f"{s['suspicious']}.")
             st.html(f'<div class="sf-panel" data-testid="reaction-summary">Mean '
-                    f'{s["mean_ms"] if s["mean_ms"] is not None else "--"} ms over '
-                    f'{s["n_valid"]} responses · lapses (&ge; {ui_config.REACTION_LAPSE_MS} ms) '
-                    f'{s["lapses"]} (missed {s["misses"]}) · false starts {s["false_starts"]} · implausible '
-                    f'(outside the quality-gate range) {s["suspicious"]}</div>')
+                    f'{s["mean_ms"] if s["mean_ms"] is not None else "--"} ms · '
+                    f'{s["lapses"]} lapses{tip(detail)}</div>')
         else:
             rt = cs.current(name).get("reaction_time_ms")
             st.caption(f"Not taken yet: the check-in uses the example value "
@@ -169,9 +193,10 @@ def main() -> None:
         st.html(gate_html(ci))
         ai_hint(ci)
         if cs.edited(name):
-            st.caption("This check-in differs from the scenario example: the dashboard will "
-                       "forecast it with the local profile (a few minutes) instead of the "
-                       "cached full-profile results.")
+            st.caption("Edited: the next forecast takes a few minutes.",
+                       help="This check-in differs from the scenario example: the dashboard "
+                            "forecasts it with the local profile instead of the cached "
+                            "full-profile results.")
             if st.button("Reset to example values"):
                 cs.reset(name)
                 # the component keeps returning its last result: mark it as used so the

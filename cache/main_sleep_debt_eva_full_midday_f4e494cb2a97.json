@@ -26,13 +26,14 @@
   "rule4_spe_eva": 1
  },
  "changes": [
-  "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)"
+  "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)",
+  "Cancel personal time"
  ],
- "risk_after": 0.0488,
+ "risk_after": 0.0492,
  "rating_after": "MEDIUM",
  "by_rule_after": {
   "cardiovascular": 115,
-  "cognitive": 6,
+  "cognitive": 7,
   "rule4_spe_eva": 10
  },
  "escalate_to_ground": false,
@@ -171,14 +172,8 @@
     "kind": "task"
    },
    {
-    "start": "22:15",
-    "duration_h": 1.5,
-    "type": "personal_time",
-    "kind": "task"
-   },
-   {
-    "start": "23:45",
-    "duration_h": 5.25,
+    "start": "23:00",
+    "duration_h": 6.0,
     "type": "sleep",
     "kind": "task"
    }
@@ -188,10 +183,11 @@
  "selection": [
   {
    "changes": [
-    "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)"
+    "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)",
+    "Cancel personal time"
    ],
-   "screen": 0.0488,
-   "confirm": 0.0488,
+   "screen": 0.0492,
+   "confirm": 0.0492,
    "result": "chosen"
   }
  ]

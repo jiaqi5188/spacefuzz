@@ -120,4 +120,7 @@ def test_full_cache_midday_demo(monkeypatch):
     assert out["from_cache"] is True
     assert out["risk_before"] == 1.0 and out["rating_before"] == "CRITICAL"
     assert f"{out['risk_after']:.1%}" == "4.9%" and out["rating_after"] == "MEDIUM"
-    assert out["changes"] == ["Start the afternoon EVA at 18:00, 12 h after waking (rule 1)"]
+    assert out["changes"] == ["Start the afternoon EVA at 18:00, 12 h after waking (rule 1)",
+                              "Cancel personal time"]           # sleep is protected (2026-11-14)
+    night = [t for t in out["plan_after"]["tasks"] if t["type"] == "sleep" and t["duration_h"] > 2]
+    assert [(t["start"], t["duration_h"]) for t in night] == [("23:00", 6.0)]

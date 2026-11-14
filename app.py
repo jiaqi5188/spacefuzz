@@ -24,10 +24,11 @@ from spacefuzz.core import plan as pl
 from spacefuzz.core import quality_gate as qg
 from spacefuzz.core import state
 import ui_config
-from ui import actions, body_map, charts, fuzz_log, guard, hud, nav, plan_board, viewport
+from ui import actions, body_map, charts, common, fuzz_log, guard, hud, nav, plan_board, viewport
 from ui import checkin_store as cs
 from ui import theme
-from ui.common import clock, esc, no_change_text, pct as fmt_pct
+from ui.common import (brief, brief_html, clock, esc, illustrative_badge, no_change_text,
+                       pct as fmt_pct, tip)
 
 ROOT = Path(__file__).resolve().parent
 PLANS_DIR = ROOT / "data" / "plans"
@@ -42,19 +43,26 @@ ESCALATION_TEXT = {
     "crew": "crew reminder: recheck, adjust the schedule, ask a crewmate to confirm",
     "ground": "reported to the ground flight surgeon",
 }
+ESCALATION_SHORT = {"self": "self-care", "crew": "crew reminder", "ground": "ground surgeon"}
 CUTOFFS = (f"green < {config.RISK_GREEN_BELOW:.0%}, yellow {config.RISK_GREEN_BELOW:.0%}-"
-           f"{config.RISK_RED_ABOVE:.0%}, red > {config.RISK_RED_ABOVE:.0%} (illustrative)")
+           f"{config.RISK_RED_ABOVE:.0%}, red > {config.RISK_RED_ABOVE:.0%}")
 
 
 # ---------------------------------------------------------------- formatting
 
 
-
 def time_to_crash_text(ttc_min, start_min: int) -> str:
+    """Visible part of the crash time line (the minutes after check-in go into its tip)."""
     if ttc_min is None:
-        return f"Not shown (risk at or below {config.RISK_RED_ABOVE:.0%})"
-    return (f"around {clock(start_min + ttc_min)} "
-            f"({ttc_min // 60} h {ttc_min % 60:02d} min after check-in)")
+        return f"No crash time (not shown at or below {config.RISK_RED_ABOVE:.0%})"
+    return f"First crash ≈ {clock(start_min + ttc_min)}"
+
+
+def time_to_crash_detail(ttc_min, start_min: int) -> str:
+    if ttc_min is None:
+        return ""
+    return (f"{ttc_min // 60} h {ttc_min % 60:02d} min after the {clock(start_min)} check-in: "
+            f"the median time of the first rule or system crash in the simulations that crash.")
 
 
 
@@ -77,38 +85,42 @@ def _indicator_rows(checkin: state.CheckIn, baseline: state.Baseline, now: dict,
 
     (s_lo, s_hi), (d_lo, d_hi) = config.ACT_NOW_BP_RANGE["sbp"], config.ACT_NOW_BP_RANGE["dbp"]
     nights = " / ".join(f"{h:.1f}" for h in checkin.sleep_last_3_nights_h)
+    # name and value stay visible; the threshold (and any extra context) goes into the tip
     return [
-        {"key": "heart_rate", "name": "Heart rate (resting)",
+        {"key": "heart_rate", "name": "Resting HR",
          "value": f"{now['heart_rate']:.0f} bpm", "baseline": f"{baseline.resting_hr:.0f} bpm",
-         "threshold": f"act at baseline + {config.ACT_NOW_HR_ABOVE_BASELINE_BPM:.0f} bpm "
-                      f"(illustrative)",
+         "threshold": f"Resting heart rate. Act at baseline + "
+                      f"{config.ACT_NOW_HR_ABOVE_BASELINE_BPM:.0f} bpm.",
          "status": status("heart_rate", {"heart_rate"}), "example_data": False},
         {"key": "blood_pressure", "name": "Blood pressure",
          "value": f"{checkin.systolic_bp:.0f}/{checkin.diastolic_bp:.0f} mmHg",
-         "baseline": f"{baseline.sbp:.0f}/{baseline.dbp:.0f} mmHg",
-         "threshold": f"range {s_lo:.0f}-{s_hi:.0f} / {d_lo:.0f}-{d_hi:.0f} mmHg (illustrative)",
+         "baseline": f"{baseline.sbp:.0f}/{baseline.dbp:.0f}",
+         "threshold": f"Act outside {s_lo:.0f}-{s_hi:.0f} / {d_lo:.0f}-{d_hi:.0f} mmHg. "
+                      f"Synthetic example value.",
          "status": status("blood_pressure", {"systolic_bp", "diastolic_bp"}),
          "example_data": True},
-        {"key": "blood_glucose", "name": "Blood glucose",
+        {"key": "blood_glucose", "name": "Glucose",
          "value": f"{checkin.blood_glucose:.0f} mg/dL",
          "baseline": f"{baseline.glucose:.0f} mg/dL",
-         "threshold": f"low below {config.GLUCOSE_LOW_MG_DL:.0f} mg/dL (illustrative)",
+         "threshold": f"Blood glucose. Low below {config.GLUCOSE_LOW_MG_DL:.0f} mg/dL. "
+                      f"Synthetic example value.",
          "status": status("blood_glucose", {"blood_glucose"}), "example_data": True},
-        {"key": "body_temperature", "name": "Body temperature (core, model)",
+        {"key": "body_temperature", "name": "Core temp",
          "value": f"{now['core_temp']:.1f} °C", "baseline": f"{baseline.core_temp:.1f} °C",
-         "threshold": f"heat strain above +{config.HEAT_STRAIN_ONSET_C:.1f} °C during EVA "
-                      f"(illustrative)",
+         "threshold": f"Core body temperature from the model. Heat strain above "
+                      f"+{config.HEAT_STRAIN_ONSET_C:.1f} °C during EVA.",
          "status": status("core_temp", {"core_temp"}), "example_data": False},
         {"key": "sleep", "name": "Sleep",
-         "value": f"{checkin.sleep_last_night_h:.1f} h last night (3 nights: {nights} h)",
+         "value": f"{checkin.sleep_last_night_h:.1f} h",
          "baseline": f"{baseline.sleep_h:.1f} h",
-         "threshold": f"short below {config.ACT_NOW_SLEEP_SHORT_H:.1f} h (illustrative)",
+         "threshold": f"Last night. Last 3 nights: {nights} h. Short below "
+                      f"{config.ACT_NOW_SLEEP_SHORT_H:.1f} h.",
          "status": status("sleep", {"sleep_last_night_h"}), "example_data": False},
-        {"key": "mood", "name": "Mood / stress (self-rating)",
-         "value": f"mood {checkin.mood}/5, stress {checkin.stress}/5",
-         "baseline": "not tracked",
-         "threshold": f"act at mood <= {config.ACT_NOW_MOOD_LOW}/5 or stress >= "
-                      f"{config.ACT_NOW_STRESS_HIGH}/5 (illustrative)",
+        {"key": "mood", "name": "Mood · stress",
+         "value": f"{checkin.mood}/5 · {checkin.stress}/5",
+         "baseline": "",
+         "threshold": f"Self-rating, 1-5. Act at mood <= {config.ACT_NOW_MOOD_LOW} or stress "
+                      f">= {config.ACT_NOW_STRESS_HIGH}. No personal baseline.",
          "status": status("mood_stress", {"mood", "stress"}), "example_data": False},
     ]
 
@@ -169,7 +181,7 @@ def timeline(res: dict) -> list[dict]:
         {"stage": "forecast", "text": f"Crash boundary map: {cells} cells "
                                       f"(sleep cut x EVA extension)"},
         {"stage": "forecast", "done": "forecast",
-         "text": f"Forecast: risk {fmt_pct(fc['risk_probability'])} -> {fc['risk_rating']}"},
+         "text": f"Forecast: risk {fmt_pct(fc['risk_probability'])} → {fc['risk_rating']}"},
     ]
     pa = (adj or {}).get("plan_adjustment")
     if not pa or not pa["changes"]:
@@ -184,24 +196,29 @@ def timeline(res: dict) -> list[dict]:
                        "text": f"Re-test {'; '.join(s['changes'])}: "
                                f"{fmt_pct(s.get('confirm', s.get('screen')))} ({s['result']})"})
     frames.append({"stage": "adjust", "done": "adjust",
-                   "text": f"Adjusted: {fmt_pct(pa['risk_before'])} -> "
+                   "text": f"Adjusted: {fmt_pct(pa['risk_before'])} → "
                            f"{fmt_pct(pa['risk_after'])} {pa['rating_after']}"})
     return frames
 
 
 def layers(adj: dict) -> dict:
-    """Two layers (stage 4 checklist): original plan escalation vs adjusted plan level."""
+    """Two layers (stage 4 checklist): original plan escalation vs adjusted plan level, as a
+    short line each plus the full sentence (for the tip)."""
     pa = adj["plan_adjustment"]
     original = (f"Original plan: {fmt_pct(adj['risk_probability'])} {adj['risk_rating']}, "
                 f"{ESCALATION_TEXT[adj['escalation']]}.")
+    short_o = f"Original → {ESCALATION_SHORT[adj['escalation']]}"
     if pa["escalate_to_ground"]:
         adjusted = (f"Adjusted plan: {fmt_pct(pa['risk_after'])} {pa['rating_after']}, still "
                     f"red: report to the ground flight surgeon.")
+        short_a = "Adjusted → still red, ground surgeon"
     else:
         level = advice.RATING_ESCALATION[pa["rating_after"]]
         adjusted = (f"Adjusted plan: {fmt_pct(pa['risk_after'])} {pa['rating_after']}, "
                     f"{ESCALATION_TEXT[level]}.")
-    return {"original": original, "adjusted": adjusted}
+        short_a = f"Adjusted → {ESCALATION_SHORT[level]}"
+    return {"original": original, "adjusted": adjusted, "original_short": short_o,
+            "adjusted_short": short_a}
 
 
 # ---------------------------------------------------------------- HTML pieces
@@ -228,8 +245,10 @@ CSS = """
 /* Fixed heights: a panel keeps its size when the forecast fills it, so nothing below moves
    and the eye goes to what changed. Long content scrolls inside the panel. */
 .sf-fix { overflow-y:auto; }
-.sf-act { height:172px; }
-.sf-compare { min-height:440px; }
+.sf-act { height:120px; }
+.sf-summary { height:96px; }
+.sf-summary .rows { font-size:13px; line-height:1.5; }
+.sf-compare { min-height:360px; }
 [data-testid="advice-cards"] { min-height:300px; align-items:start; }
 </style>
 """
@@ -246,15 +265,23 @@ def marker(test_id: str) -> str:
 def topbar_html(static: dict, res: dict | None) -> str:
     p = static["plan"]
     window = static["check_window"].capitalize()
-    src = (f"Results: {res['profile']} profile, seed {res['forecast'].get('seed', '--')}"
-           if res else "Results: not computed yet")
+    if res:
+        prob = res["forecast"].get("probability_track") or {}
+        n = f" ({prob['samples']:,} simulated days)" if prob.get("samples") else ""
+        src = f"seed {res['forecast'].get('seed', '--')}"
+        src_tip = tip(f"Results from the {res['profile']} sampling profile{n}. Same inputs and "
+                      f"seed give the same result.", "l")
+    else:
+        src, src_tip = "not run yet", ""
     if static.get("checkin_json"):
         src += " · edited check-in"
     return (f'<div class="sf-topbar" data-testid="topbar"><span>Mars Base</span>'
             f'<span data-testid="crew-member">{esc(ui_config.CREW_MEMBER_NAME)}</span>'
             f'<span>{esc(p["date"])}</span><span>Earth delay {esc(p["comm_delay_min"])} min</span>'
-            f'<span data-testid="check-window">Check window: {esc(window)}</span>'
-            f'<span class="sub">{esc(SCENARIOS[static["name"]])} · {esc(src)}</span></div>')
+            f'<span data-testid="check-window">{esc(window)} check</span>'
+            f'{illustrative_badge()}'
+            f'<span class="sub">{esc(SCENARIOS[static["name"]])} · {esc(src)}{src_tip}</span>'
+            f'</div>')
 
 
 def task_label(t: dict) -> str:
@@ -293,18 +320,19 @@ def plan_table_html(plan: dict, test_id: str, original: dict | None = None) -> s
 def indicators_html(rows: list[dict]) -> str:
     items = []
     for r in rows:
-        tag = '<span class="sf-tag">example data</span>' if r["example_data"] else ""
+        tag = '<span class="sf-tag">example</span>' if r["example_data"] else ""
+        base = (f' <span class="base sf-small">base {esc(r["baseline"])}</span>'
+                if r["baseline"] else "")
         items.append(
             f'<div class="sf-ind" data-testid="indicator-{r["key"]}" data-status="{r["status"]}">'
-            f'<div>{dot(r["status"])}{esc(r["name"])}{tag}<div class="sf-small">'
-            f'{esc(r["threshold"])}</div></div><div style="text-align:right">'
-            f'<b>{esc(r["value"])}</b><div class="sf-small">baseline {esc(r["baseline"])}'
-            f'</div></div></div>')
-    return (f'<div class="sf-panel" data-testid="indicators"><div class="sf-h">Now: '
-            f'morning check-in</div>{"".join(items)}</div>')
+            f'<div class="sf-ind-name">{dot(r["status"])}{esc(r["name"])}{tip(r["threshold"])}'
+            f'{tag}</div><div class="sf-ind-val"><b>{esc(r["value"])}</b>{base}</div></div>')
+    return (f'<div class="sf-panel" data-testid="indicators"><div class="sf-h">Check-in'
+            f'{tip("This morning: wearable readings and the crew member self-report.")}'
+            f'</div>{"".join(items)}</div>')
 
 
-NAP_ADVICE = re.compile(r"schedule a [\w-]+ nap before demanding tasks")
+NAP_ADVICE = common.NAP_ADVICE
 
 
 def act_now_view(res: dict | None, frames: list, shown: int) -> str:
@@ -313,10 +341,13 @@ def act_now_view(res: dict | None, frames: list, shown: int) -> str:
     done = {f.get("done") for f in frames[:shown]}
     fc = res["forecast"] if res and "forecast" in done else None
     adj = res.get("adjust") if res and "adjust" in done else None
-    return act_now_html(fc, adj)
+    # forecast shown, adjustment not yet: an adjusted plan with its own nap is coming, so do
+    # not show the engine's generic "20-minute nap" only to replace it a few seconds later
+    pending = fc is not None and adj is None and _nap((res or {}).get("adjust")) is not None
+    return act_now_html(fc, adj, nap_pending=pending)
 
 
-def act_now_html(fc: dict | None, adj: dict | None = None) -> str:
+def act_now_html(fc: dict | None, adj: dict | None = None, nap_pending: bool = False) -> str:
     """Act-now advice. When the adjusted plan schedules a nap, the generic nap advice from
     the engine ("a 20-minute nap") points to that nap instead, so the two never disagree."""
     if fc is None:
@@ -324,11 +355,14 @@ def act_now_html(fc: dict | None, adj: dict | None = None) -> str:
     else:
         lines = fc["advice_now"] + fc.get("action_restrictions", [])
         nap = _nap(adj)
+        if nap_pending and not nap:
+            lines = [common.neutral_nap(x) for x in lines]
         if nap:
-            lines = [NAP_ADVICE.sub(f"take the {_hm(nap['duration_h'])} nap the adjusted plan "
-                                    f"schedules at {nap['start']} before demanding tasks", x)
+            lines = [NAP_ADVICE.sub(f"take the {_hm(nap['duration_h'])} nap at {nap['start']} "
+                                    f"(scheduled by the adjusted plan) before demanding tasks",
+                                    x)
                      for x in lines]
-        body = "".join(f"<div>• {esc(x)}</div>" for x in lines) or \
+        body = "".join(f"<div>• {brief_html(x)}</div>" for x in lines) or \
             '<div class="sf-small">Nothing to act on now.</div>'
     return (f'<div class="sf-panel sf-fix sf-act" data-testid="act-now"><div class="sf-h">Act now</div>'
             f'{body}</div>')
@@ -344,14 +378,14 @@ def coverage_summary(warnings: list[str]) -> str:
             for kind, items in re.findall(r"(rules|systems) ([^;]+)", m[1]):
                 n = len([x for x in items.split(",") if x.strip()])
                 counts.append(f"{n} {kind[:-1] if n == 1 else kind}")
-            parts.append("coverage gaps: " + ", ".join(counts))
+            parts.append("gaps: " + ", ".join(counts))
     ooe = [w for w in warnings if not w.startswith("Not covered")]
     if ooe:
         parts.append(f"{len(ooe)} outside experience")
     if not parts:
         return ""
-    return (f'<div class="sf-small" style="color:var(--sf-muted)">⚠ {esc(" · ".join(parts))} '
-            f'(see log)</div>')
+    return (f'<div class="sf-small" style="color:var(--sf-muted)">⚠ {esc(" · ".join(parts))}'
+            f'{tip(" ".join(warnings) + " Details: the [cover] lines of the fuzz log.")}</div>')
 
 
 def risk_html(fc: dict | None, start_min: int, revealed: bool) -> str:
@@ -362,21 +396,42 @@ def risk_html(fc: dict | None, start_min: int, revealed: bool) -> str:
         rating = fc["risk_rating"]
         color = RATING_COLOR[rating]
         risk = fmt_pct(fc["risk_probability"])
-        ttc = time_to_crash_text(fc["time_to_crash_minutes"], start_min) \
-            if rating != "UNKNOWN" else fc.get("message") or qg.UNTRUSTED_MESSAGE
+        if rating != "UNKNOWN":
+            ttc = (esc(time_to_crash_text(fc["time_to_crash_minutes"], start_min))
+                   + tip(time_to_crash_detail(fc["time_to_crash_minutes"], start_min)))
+        else:
+            ttc = esc(fc.get("message") or qg.UNTRUSTED_MESSAGE)
+    n = ((fc or {}).get("probability_track") or {}).get("samples")
+    what = (f"Risk = share of the {n:,} simulated days that crash. " if n else
+            "Risk = share of the simulated days that crash. ") + f"Cut-offs: {CUTOFFS}."
     warn = (coverage_summary((fc or {}).get("coverage_warnings", [])) if revealed else "") or \
         '<div class="sf-small">&nbsp;</div>'
-    return (f'<div class="sf-panel"><div class="sf-h">Today\'s forecast</div>'
+    return (f'<div class="sf-panel"><div class="sf-h">Today\'s forecast{tip(what)}</div>'
             f'<div class="sf-risk" data-testid="risk-probability" data-rating="{color}" '
             f'style="color:{COLOR[color]}">{risk} <span style="font-size:20px">{esc(rating)}'
-            f'</span></div><div class="sf-small">Risk probability = share of simulations that '
-            f'crash. Cut-offs: {CUTOFFS}</div>'
-            f'<div style="margin-top:6px" data-testid="time-to-crash">Forecast risk time: '
-            f'{esc(ttc)}</div><div data-testid="coverage-warnings">{warn}</div></div>')
+            f'</span></div>'
+            f'<div style="margin-top:6px" data-testid="time-to-crash">{ttc}</div>'
+            f'<div data-testid="coverage-warnings">{warn}</div></div>')
+
+
+def retest_text(retest: dict) -> tuple[str, str]:
+    """(visible line, tip) for the re-test of the chosen plan. A plan that left the red zone
+    had both checks; a fallback that is still red had the guided re-test only: the 30-min
+    schedule-slip check asks whether a fixed plan keeps a margin, and a red plan has none."""
+    types = retest.get("guided_crash_types") or []
+    rounds = retest.get("rounds")
+    guided = (f"Guided track re-test ({rounds:,} rounds): "
+              + (", ".join(types) if types else "no crash type found") + "."
+              if rounds else "")
+    if retest["slip_margin"].startswith("not run"):
+        return ("Re-tested: guided track only (still red)",
+                f"{guided} The 30-min schedule-slip check is not run: it only applies to a plan "
+                f"that left the red zone. The plan is reported to the ground.".strip())
+    return "Re-tested ✓", f"Schedule slip check: {retest['slip_margin']}. {guided}".strip()
 
 
 def comparison_html(adj: dict | None, original_plan: dict, revealed: bool) -> str:
-    head = '<div class="sf-h">Before / after adjustment</div>'
+    head = '<div class="sf-h">Before / after</div>'
     if not revealed or adj is None or not adj.get("plan_adjustment"):
         body = '<div class="sf-small">Shown after the adjustment is re-tested.</div>'
         return f'<div class="sf-panel sf-compare" data-testid="risk-comparison">{head}{body}</div>'
@@ -389,30 +444,32 @@ def comparison_html(adj: dict | None, original_plan: dict, revealed: bool) -> st
         f'{fmt_pct(pa["risk_before"])}</span> → <span style="color:{c_after}" '
         f'data-testid="risk-after" data-rating="{RATING_COLOR[pa["rating_after"]]}">'
         f'{fmt_pct(pa["risk_after"])} {esc(pa["rating_after"])}</span></div>',
-        f'<div data-testid="layer-original">{esc(lay["original"])}</div>',
-        f'<div data-testid="layer-adjusted">{esc(lay["adjusted"])}</div>',
+        f'<div data-testid="layer-original">{esc(lay["original_short"])}'
+        f'{tip(lay["original"])}</div>',
+        f'<div data-testid="layer-adjusted">{esc(lay["adjusted_short"])}'
+        f'{tip(lay["adjusted"])}</div>',
     ]
     if pa["changes"]:
         parts.append('<div class="sf-small" style="margin-top:6px">Changes</div>'
                      + "".join(f"<div>• {esc(c)}</div>" for c in pa["changes"]))
-    for key, title in (("safer_option", "Safer option"),
-                       ("same_day_alternative", "Same-day alternative")):
+    for key, title in (("safer_option", "Safer"), ("same_day_alternative", "Same day")):
         o = pa.get(key)
         if o:
             scope = o.get("scope") or pa.get("scope") or ""
             parts.append(f'<div data-testid="{key.replace("_", "-")}" style="margin-top:6px">'
-                         f'<b>{title}:</b> {esc("; ".join(o["changes"]))}: {fmt_pct(o["risk"])} '
-                         f'{esc(o["rating"])}. <span class="sf-small">{esc(scope)}</span></div>')
-    if pa.get("scope"):
-        parts.append(f'<div class="sf-small">{esc(pa["scope"])}</div>')
+                         f'<b>{title}:</b> {esc("; ".join(o["changes"]))} → {fmt_pct(o["risk"])} '
+                         f'{esc(o["rating"])}{tip(scope)}</div>')
     retest = pa.get("retest")
     if retest:
-        parts.append(f'<div class="sf-small" style="margin-top:6px">Re-test: '
-                     f'{esc(retest["slip_margin"])}</div>')
+        label, detail = retest_text(retest)
+        parts.append(f'<div class="sf-small" style="margin-top:6px">{esc(label)}{tip(detail)}'
+                     f'</div>')
+    elif pa.get("scope"):
+        parts.append(f'<div class="sf-small">Scope{tip(pa["scope"])}</div>')
     adjusted = adj.get("details", {}).get("adjusted_plan")
     if adjusted and pa["changes"]:
-        parts.append('<details class="sf-fold"><summary>Adjusted plan as a table (new or '
-                     'moved tasks in green)</summary>'
+        parts.append('<details class="sf-fold"><summary>Adjusted plan table'
+                     f'{tip("New or moved tasks in green.")}</summary>'
                      + plan_table_html(adjusted, "plan-table-adjusted", original_plan)
                      + '</details>')
     return (f'<div class="sf-panel sf-compare" data-testid="risk-comparison">{head}'
@@ -441,28 +498,34 @@ def cards_html(fc: dict | None, adj: dict | None, revealed: bool) -> str:
         cards = [f'<div class="sf-card" style="--c:{c}">{esc(msg)}</div>']
         return f'<div class="sf-cards" data-testid="advice-cards">{"".join(cards)}</div>'
     a = adj or {}
-    chain = " <b>→</b> ".join(f"<span>{esc(x)}</span>" for x in fc["causal_chain"])
+    links = [brief(x) for x in fc["causal_chain"]]
+    chain = " <b>→</b> ".join(f"<span>{esc(short)}</span>" for short, _ in links)
+    chain_tip = " → ".join(fc["causal_chain"])
     level = a.get("escalation", fc["escalation"])
+    system = fc["primary_vulnerable_system"]
+    summary = (f"Your plan today is {rating} risk ({fmt_pct(fc['risk_probability'])}), mainly "
+               f"{system}. Level: {ESCALATION_TEXT[level]}.")
+    nothing = (f"No single measurement moves the risk by {ui_config.MEASURE_MIN_RISK_PP:g} point "
+               f"or more within its error.")
     cards = [
-        f'<div class="sf-card" data-testid="card-risk" style="--c:{c}"><b>Your plan today is '
-        f'{esc(rating)} risk ({fmt_pct(fc["risk_probability"])}), mainly '
-        f'{esc(fc["primary_vulnerable_system"])}.</b><div class="sf-chain" '
-        f'style="margin-top:6px">{chain}</div><div class="sf-small" style="margin-top:6px">'
-        f'Level: {esc(ESCALATION_TEXT[level])}</div></div>',
+        f'<div class="sf-card" data-testid="card-risk" style="--c:{c}"><b>{esc(rating)} · '
+        f'{esc(system)}</b>{tip(summary)}'
+        f'<div class="sf-chain" style="margin-top:6px">{chain}'
+        f'{tip(chain_tip) if any(d for _, d in links) else ""}</div></div>',
         f'<div class="sf-card" data-testid="card-today" style="--c:{COLOR["green"]}">'
         f'<b>Prevent today</b>'
-        + "".join(f"<div>• {esc(x)}</div>" for x in a.get("advice_today", [])) + "</div>",
+        + "".join(f"<div>• {brief_html(x)}</div>" for x in a.get("advice_today", []))
+        + "</div>",
         f'<div class="sf-card" data-testid="card-measure" style="--c:{COLOR["yellow"]}">'
         f'<b>Measure first at midday</b>'
-        + ("".join(f"<div>• {esc(x)}</div>" for x in measurement_lines(a))
-           or f"<div>No single measurement moves the risk by {ui_config.MEASURE_MIN_RISK_PP:g} "
-              f"point or more within its error.</div>")
+        + ("".join(f"<div>• {brief_html(x)}</div>" for x in measurement_lines(a))
+           or f"<div>Nothing to re-measure{tip(nothing)}</div>")
         + "</div>",
     ]
     if a.get("min_crash_perturbation"):
         cards.append(f'<div class="sf-card" data-testid="card-boundary" '
                      f'style="--c:{COLOR["grey"]}"><b>Closest crash</b><div>'
-                     f'{esc(a["min_crash_perturbation"])}</div></div>')
+                     f'{brief_html(a["min_crash_perturbation"])}</div></div>')
     return f'<div class="sf-cards" data-testid="advice-cards">{"".join(cards)}</div>'
 
 
@@ -494,16 +557,38 @@ class View:
 def status_html(v: View) -> str:
     """One line under Run Forecast: what to do, or what is happening (fixed height)."""
     if v.busy and v.res is None:
-        text = ("Fuzzing today's plan: read from the engine cache when it is fresh, otherwise "
-                "a full run that takes minutes...")
+        text, more = "Fuzzing today's plan...", ("Read from the engine cache when it is fresh, "
+                                                 "otherwise a full run that takes minutes.")
     elif v.busy:
-        text = "Replaying the fuzzing run..."
+        text, more = "Replaying the run...", ""
     elif v.ended:
-        text = "Done. Press again to replay the run."
+        text, more = "Done", "Press again to replay the run."
     else:
-        text = "Start here: fuzz today's plan, then adjust it."
+        text, more = "Start here", "Fuzz today's plan, then adjust it."
     call = "" if (v.busy or v.ended) else '<style>.st-key-run_forecast button{animation:sf-call 2.4s ease-in-out infinite}</style>'
-    return f'<div class="sf-status" data-testid="run-status">{esc(text)}</div>{call}'
+    return (f'<div class="sf-status" data-testid="run-status">{esc(text)}{tip(more)}</div>'
+            f'{call}')
+
+
+def run_summary_html(fc: dict | None, revealed: bool) -> str:
+    """Engine screen, under Run Forecast: what the run did, in three short lines (fixed
+    height, so the charts below never move)."""
+    head = '<div class="sf-h">Run summary</div>'
+    if not revealed or fc is None or fc.get("risk_rating") == "UNKNOWN":
+        rows = '<div class="sf-small">Shown with the forecast.</div>'
+    else:
+        prob, guided = fc.get("probability_track") or {}, fc.get("guided_track") or {}
+        perf = fc.get("performance") or (fc.get("details") or {}).get("performance_before") or {}
+        n, crashed = prob.get("samples", 0), prob.get("crashes", 0)
+        lines = [f"{n:,} simulated days · {crashed:,} crashed ({fmt_pct(crashed / n if n else None)})",
+                 f"{guided.get('rounds', 0):,} guided rounds · "
+                 f"{len(guided.get('crash_types', []))} crash types"]
+        if perf.get("simulations"):
+            lines.append(f"{perf['simulations']:,} simulations · "
+                         f"{perf.get('simulations_per_second', 0):.0f} per second")
+        rows = "".join(f"<div>{esc(x)}</div>" for x in lines)
+    return (f'<div class="sf-panel sf-summary" data-testid="run-summary">{head}'
+            f'<div class="rows">{rows}</div></div>')
 
 
 def regions(v: View) -> dict:
@@ -523,6 +608,7 @@ def regions(v: View) -> dict:
         "status": lambda: status_html(v),
         "compare": lambda: comparison_html(adj, s["plan"], "adjust" in done),
         "cards": lambda: cards_html(fc, adj, "forecast" in done),
+        "summary": lambda: run_summary_html(fc, "forecast" in done),
         "markers": lambda: marks or "<div></div>",
     }
 
@@ -617,7 +703,8 @@ def view_layout(v: View, view: str) -> None:
     if view == "crew":                          # few, large items: the visor, then the day's plan
         hud.show_visor(v.static, v.res if v.ended else None)   # full width: laid out for it
         run_button(v)
-        panels(v, "board")
+        plan_board.show(v.static, v.res, v.shown, v.frames,
+                        height=ui_config.BOARD_HEIGHT["wide"])     # full width: fewer lines
     elif view == "surgeon":                     # decide: risk, what to do now, before/after
         risk_col, act_col, cards_col = st.columns(3, gap="small")
         with risk_col:                          # panels that grow at the reveal sit last
@@ -635,9 +722,16 @@ def view_layout(v: View, view: str) -> None:
         with left:
             put(v, "risk")
             run_button(v)
+            put(v, "summary")
         with right:
             panels(v, "progress")
         charts.show(v.static, v.res, v.shown, v.frames)
+
+
+def footer_html() -> str:
+    """One grey line naming the data sources (ui_config.DATA_FOOTER)."""
+    return (f'<div class="sf-small sf-footer" data-testid="data-footer">'
+            f'{esc(ui_config.DATA_FOOTER)}</div>')
 
 
 def main(view: str | None = None) -> None:
@@ -680,6 +774,7 @@ def main(view: str | None = None) -> None:
         full_layout(v, bool(wide))
     else:
         view_layout(v, view)
+    st.html(footer_html())                        # data sources, last on every screen
     put(v, "markers")
 
     if job and not playing:                       # step 1: compute (or read the cache)

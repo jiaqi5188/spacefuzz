@@ -88,8 +88,10 @@ def test_fmt_pct_and_clock():
 
 def test_time_to_crash_text():
     assert "13:30" in app.time_to_crash_text(420, 390)
-    assert "7 h 00 min" in app.time_to_crash_text(420, 390)
+    assert "7 h 00 min" in app.time_to_crash_detail(420, 390)     # folded into the tip
+    assert "06:30 check-in" in app.time_to_crash_detail(420, 390)
     assert "not shown" in app.time_to_crash_text(None, 390).lower()
+    assert app.time_to_crash_detail(None, 390) == ""
 
 
 def test_timeline_reveals_forecast_before_adjustment_from_real_numbers():
@@ -120,9 +122,9 @@ def test_indicator_rows_six_with_units_baseline_and_illustrative_thresholds():
              "body_temperature": "°C", "sleep": " h", "mood": "/5"}
     for r in rows:
         assert units[r["key"]] in r["value"]
-        if r["key"] != "mood":                          # mood / stress has no personal baseline
+        if r["key"] not in ("mood", "blood_pressure"):   # no baseline / unit shown once
             assert units[r["key"]] in r["baseline"]
-        assert "illustrative" in r["threshold"]
+        assert r["threshold"] and "illustrative" not in r["threshold"]   # said once: top bar
         assert r["status"] in ("green", "yellow", "red", "grey")
     by = {r["key"]: r for r in rows}
     assert by["sleep"]["status"] == "yellow"            # 6.2 h, 6.9 h debt -> act-now advice
@@ -293,7 +295,8 @@ def test_act_now_nap_points_to_the_adjusted_plan():
     adj = fake_adjust()                       # adjusted plan has a 1.5 h sleep at 10:00
     h = app.act_now_html(fc, adj)
     assert "20-minute" not in h
-    assert "take the 1 h 30 min nap the adjusted plan schedules at 10:00" in h
+    assert "Take the 1 h 30 min nap at 10:00 before demanding tasks" in h
+    assert "Scheduled by the adjusted plan" in h                  # in the tip
     assert "20-minute nap" in app.act_now_html(fc, None)          # no adjustment: as given
 
 
@@ -310,7 +313,7 @@ def test_measurement_prompts_below_one_point_are_hidden():
 
 def test_comparison_keeps_the_summary_and_folds_the_long_table():
     h = app.comparison_html(fake_adjust(), {"tasks": []}, True)
-    assert "21.0%" in h and "4.5% MEDIUM" in h and "Safer option" in h
+    assert "21.0%" in h and "4.5% MEDIUM" in h and "Safer:" in h
     assert "Shorten the EVA by 2 h" in h
     i = h.index("<details")
     assert "open" not in h[i:h.index(">", i)]                    # collapsed by default
@@ -324,9 +327,10 @@ def test_risk_panel_coverage_is_a_small_grey_summary():
         "CO2 up to 6000 ppm is above the highest recorded cabin CO2 (4663 ppm); its effects are "
         "extrapolated"]
     h = app.risk_html(fc, 390, True)
-    assert "coverage gaps: 2 rules, 1 system · 1 outside experience (see log)" in h
-    assert h.count("see log") == 1
-    assert "rule2_exercise_eva" not in h and "var(--sf-muted)" in h
+    vis = h.split("<span class=\"sf-tip")
+    assert "gaps: 2 rules, 1 system · 1 outside experience" in h
+    assert "rule2_exercise_eva" not in "".join(v.split("</span>", 1)[-1] for v in vis)
+    assert "fuzz log" in h and "var(--sf-muted)" in h               # the tip points to the log
 
 
 def test_act_now_rewrite_tracks_the_engine_text():
@@ -349,10 +353,12 @@ def test_act_now_original_before_the_adjust_reveal_rewritten_after():
     i_adj = next(i for i, f in enumerate(frames) if f.get("done") == "adjust") + 1
     assert "Shown with the forecast" in app.act_now_view(res, frames, 0)
     before = app.act_now_view(res, frames, i_fc)            # forecast revealed, adjust not yet
-    assert "20-minute nap" in before and "adjusted plan" not in before
+    # user review 2026-11-15: no "20-minute nap" that the adjusted plan replaces seconds later
+    assert "20-minute nap" not in before and "Plan a nap before demanding tasks" in before
+    assert "1 h 30 min nap at 10:00" not in before                 # no spoiler of the adjustment
     after = app.act_now_view(res, frames, i_adj)
     assert "20-minute nap" not in after
-    assert "take the 1 h 30 min nap the adjusted plan schedules at 10:00" in after
+    assert "Take the 1 h 30 min nap at 10:00" in after
 
 
 # ---------------------------------------------------------------- edited check-in (4.3)
@@ -472,3 +478,27 @@ def test_a_long_computation_is_not_dropped_as_stale(monkeypatch):
     monkeypatch.setattr(actions.time, "time", lambda: later)
     assert actions.job("forecast", max_age=actions.COMPUTE_STALE_S) is not None
     assert actions.job("forecast") is None
+
+
+def test_a_still_red_fallback_shows_its_guided_retest_not_not_run():
+    """User review 2026-11-14: the backup plan stays red; the guided track did re-test it (the
+    30-min slip check only applies to a plan that left the red zone), so the panel says so."""
+    adj = fake_adjust(after=0.3232, rating_after="HIGH", ground=True)
+    adj["plan_adjustment"]["retest"] = {
+        "slip_margin": "not run: no candidate left the red zone",
+        "guided_crash_types": ["CNS/cognitive", "Cardiovascular/cardiovascular",
+                               "CNS/rule3_co2_precision"], "rounds": 2000}
+    h = app.comparison_html(adj, {"tasks": []}, True)
+    assert "Re-test not run" not in h
+    assert "Re-tested: guided track only (still red)" in h
+    assert "2,000 rounds" in h and "CNS/rule3_co2_precision" in h          # in the tip
+    assert "only applies to a plan that left the red zone" in h
+
+
+def test_a_fixed_plan_shows_the_slip_check_and_guided_types():
+    adj = fake_adjust()
+    adj["plan_adjustment"]["retest"] = {
+        "slip_margin": "Training 1 h 15 min later turns this red",
+        "guided_crash_types": ["Cardiovascular/rule1_sleep_eva"], "rounds": 2000}
+    h = app.comparison_html(adj, {"tasks": []}, True)
+    assert "Re-tested ✓" in h and "Training 1 h 15 min later" in h and "2,000 rounds" in h

@@ -280,6 +280,16 @@
    },
    {
     "changes": [
+     "Move the EVA 30 min later",
+     "Insert a 30 min rest before the EVA",
+     "Split the EVA into two parts with a 1 h rest between",
+     "EVA now 11:00-13:30, 14:30-17:00"
+    ],
+    "cost": 2.5,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
      "Insert a 1 h 30 min nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
      "EVA now 11:30-14:00, 15:00-17:30"
@@ -334,6 +344,26 @@
    },
    {
     "changes": [
+     "Shorten the EVA by 1 h",
+     "Move the EVA 30 min later",
+     "Insert a 30 min rest before the EVA",
+     "EVA now 11:00-15:00"
+    ],
+    "cost": 3.0,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
+     "Move the EVA 1 h later",
+     "Insert a 30 min rest before the EVA",
+     "Split the EVA into two parts with a 1 h rest between",
+     "EVA now 11:30-14:00, 15:00-17:30"
+    ],
+    "cost": 3.0,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
      "Move the EVA 2 h later",
      "Insert a 1 h 30 min nap before the EVA",
      "EVA now 13:30-18:30"
@@ -364,6 +394,16 @@
      "Shorten the EVA by 1 h",
      "Split the EVA into two parts with a 1 h rest between",
      "EVA now 10:00-12:00, 13:00-15:00"
+    ],
+    "cost": 3.5,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
+     "Shorten the EVA by 1 h",
+     "Move the EVA 1 h later",
+     "Insert a 30 min rest before the EVA",
+     "EVA now 11:30-15:30"
     ],
     "cost": 3.5,
     "screen_risk": 1.0
@@ -441,6 +481,16 @@
    {
     "changes": [
      "Shorten the EVA by 2 h",
+     "Move the EVA 30 min later",
+     "Insert a 30 min rest before the EVA",
+     "EVA now 11:00-14:00"
+    ],
+    "cost": 5.0,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
+     "Shorten the EVA by 2 h",
      "Insert a 1 h 30 min nap before the EVA",
      "EVA now 11:30-14:30"
     ],
@@ -468,47 +518,21 @@
    {
     "changes": [
      "Shorten the EVA by 2 h",
+     "Move the EVA 1 h later",
+     "Insert a 30 min rest before the EVA",
+     "EVA now 11:30-14:30"
+    ],
+    "cost": 5.5,
+    "screen_risk": 1.0
+   },
+   {
+    "changes": [
+     "Shorten the EVA by 2 h",
      "Move the EVA 2 h later",
      "EVA now 12:00-15:00"
     ],
     "cost": 6.0,
     "screen_risk": 1.0
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h nap before the EVA",
-     "EVA now 16:00-21:00"
-    ],
-    "cost": 6.0,
-    "screen_risk": 0.0196
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h rest before the EVA",
-     "EVA now 16:00-21:00"
-    ],
-    "cost": 6.0,
-    "screen_risk": 0.0316
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h 30 min nap before the EVA",
-     "EVA now 16:30-21:30"
-    ],
-    "cost": 6.5,
-    "screen_risk": 0.0192
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 15:00-17:30, 18:30-21:00"
-    ],
-    "cost": 6.5,
-    "screen_risk": 0.01
    },
    {
     "changes": [
@@ -521,36 +545,6 @@
    },
    {
     "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 30 min rest before the EVA",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 15:30-18:00, 19:00-21:30"
-    ],
-    "cost": 7.0,
-    "screen_risk": 0.0108
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h rest before the EVA",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 16:00-18:30, 19:30-22:00"
-    ],
-    "cost": 7.5,
-    "screen_risk": 0.01
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h nap before the EVA",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 16:00-18:30, 19:30-22:00"
-    ],
-    "cost": 7.5,
-    "screen_risk": 0.0096
-   },
-   {
-    "changes": [
      "Shorten the EVA by 1 h",
      "Start the EVA after the spe_warning ends (15:00)",
      "Insert a 30 min rest before the EVA",
@@ -558,16 +552,6 @@
     ],
     "cost": 7.5,
     "screen_risk": 0.0148
-   },
-   {
-    "changes": [
-     "Start the EVA after the spe_warning ends (15:00)",
-     "Insert a 1 h 30 min nap before the EVA",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 16:30-19:00, 20:00-22:30"
-    ],
-    "cost": 8.0,
-    "screen_risk": 0.0092
    },
    {
     "changes": [

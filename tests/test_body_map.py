@@ -78,7 +78,8 @@ def test_html_idle_play_revealed():
 def test_html_popup_dose_bar_and_labels():
     h = doc("revealed")
     assert 'data-testid="body-map-popup"' in h
-    assert 'data-testid="dose-bar"' in h and "µGy" in h and "illustrative" in h
+    assert 'data-testid="dose-bar"' in h and "µGy" in h
+    assert 'class="sf-tip u"' in h and ".sf-tip" in h          # the dose note sits in a tip
     assert f"{config.RAD_EVA_DOSE_LIMIT_UGY:.0f} µGy" in h
     assert "MSL-RAD" in h and "GOES" in h                         # data source + proxy note
     assert "weekly" in h.lower()

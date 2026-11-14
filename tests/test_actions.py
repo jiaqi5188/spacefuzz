@@ -42,11 +42,11 @@ def test_run_forecast_locks_while_it_runs(monkeypatch):
     click_and_hold(at, "Run Forecast", monkeypatch)
     busy = button(at, "Running forecast...")
     assert busy.disabled                                     # a second click does nothing
-    assert "Replaying the fuzzing run" in page_html(at)
+    assert "Replaying the run" in page_html(at)
     assert at.sidebar.selectbox[0].disabled                  # no scenario switch mid-run
     at.run()                                                 # the run finishes, unlocks
     assert not button(at, "Run Forecast").disabled
-    assert "Done. Press again to replay" in page_html(at)
+    assert "Press again to replay" in page_html(at)
     assert 'data-testid="playback-done"' in page_html(at)
 
 

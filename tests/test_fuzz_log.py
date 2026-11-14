@@ -74,7 +74,7 @@ def test_describe_ops_plain_language():
            {"op": "F", "params": {"faults": ["missing", "network_down"]}}]
     text = fl.describe_ops(ops)
     for part in ("sleep -2.9 h", "EVA -1 h 15 min", "heat 0.20 °C/h",
-                 "CO2 excursion +16% -> science_experiment +2 h 45 min, SpO2 -3.9%",
+                 "CO2 excursion +16% → science_experiment +2 h 45 min, SpO2 -3.9%",
                  "docking 1 h 00 min inserted",
                  "fatigue +30", "SPE warning from 13:30", "sensor fault: missing, network_down"):
         assert part in text, part
@@ -295,10 +295,10 @@ def test_simplest_near_miss_fewest_physical_changes():
     line = fl.simplest_near_miss(ev_, hist, plan_fitness=4.08, plan_min_steps=1)
     assert "round 70" in line                          # nearest (1 step), fewest physical, then fitness
     assert "closer to a crash than the plan as written" in line
-    assert "among the 4 recorded new lows" in line and "fitness 4.08 -> 3.00" in line
+    assert "among the 4 recorded new lows" in line and "fitness 4.08 → 3.00" in line
     assert "2 changes vs plan:" in line
     assert "\n   ① solar particle event (no warning)" in line            # numbered, grouped
-    assert ("\n   ② CO2 excursion +23% -> science_experiment +1 h 45 min, SpO2 -4.8%"
+    assert ("\n   ② CO2 excursion +23% → science_experiment +1 h 45 min, SpO2 -4.8%"
             in line)
     assert "sleep and EVA as planned" in line
     assert "still 1 step (15 min of change) from a time-based rule, like the plan as written" in line

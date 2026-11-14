@@ -82,11 +82,14 @@ def test_heatmap_figure():
     ring = next(t for t in fig.data if t.name == "guided-track boundary")
     assert list(ring.y) == [0.0] and ring.x[0] == pytest.approx(0.3)   # only rows on the chart
     notes = " ".join(a.text for a in fig.layout.annotations)
-    assert "illustrative" in notes
-    assert "guided boundary 0.30 h · scan 0.25 h (15 min): same edge" in notes
-    assert "guided survivors: EVA as planned or shorter only" in notes
+    tip = " ".join(a.hovertext or "" for a in fig.layout.annotations)
+    assert "illustrative" not in notes                              # said once: the top bar
+    assert "cell = risk of" in notes and "ⓘ" in notes               # short line + (i)
+    assert "guided boundary 0.30 h · scan 0.25 h (15 min): same edge" in tip
+    assert "guided survivors: EVA as planned or shorter only" in tip
+    assert "Green < 1%" in tip
     lo, hi = fig.layout.yaxis.range
-    assert lo < -0.25 and hi == pytest.approx(1.25)                  # room below the grid for notes
+    assert lo == pytest.approx(-0.25) and hi == pytest.approx(1.25)   # notes moved to the tip
     assert "Sleep cut" in fig.layout.xaxis.title.text and "EVA" in fig.layout.yaxis.title.text
 
 
@@ -103,8 +106,11 @@ def test_fan_figure_two_panels_crashed_red_threshold_illustrative():
     assert thr and thr[0].y0 == pytest.approx(0.8 * state.max_heart_rate(state.make_baseline()))
     titles = " ".join(a.text for a in fig.layout.annotations)
     assert "As planned" in titles and "21.0%" in titles
-    assert "Adjusted" in titles and "4.5%" in titles and "illustrative" in titles
-    assert "1 of 2 shown crashed" in titles and "0 of 2 shown crashed" in titles
+    assert "Adjusted" in titles and "4.5%" in titles and "illustrative" not in titles
+    assert "1 / 2 crashed" in titles and "0 / 2 crashed" in titles
+    assert "limit 140 bpm" in titles
+    tip = " ".join(a.hovertext or "" for a in fig.layout.annotations)
+    assert "80% of the maximum heart rate" in tip
     nocrash = next(t for t in fig.data if t.name == "no crash")
     assert nocrash.opacity >= 0.45                                   # visible on the dark panel
 
@@ -128,7 +134,7 @@ def test_trend_series_history_plus_today():
     for key in charts.TRENDS:
         s = charts.trend_series(MAIN, key)
         assert s["days"][-1] == 0 and len(s["days"]) == config.BASELINE_DAYS + 1
-        assert s["unit"] and "illustrative" in s.get("threshold_label", "illustrative")
+        assert s["unit"] and "illustrative" not in s.get("threshold_label", "")
     sleep = charts.trend_series(MAIN, "sleep")
     assert sleep["values"][-3:] == [4.3, 4.5, 6.2]      # last 3 nights from the check-in
     bp = charts.trend_series(MAIN, "blood_pressure")
@@ -141,7 +147,8 @@ def test_trend_figure_marks_today_and_baseline():
     today = next(t for t in fig.data if t.name == "today")
     assert today.marker.color == ui_config.COLOR["yellow"]      # indicator status colour
     assert {"synthetic example history", "today"} <= names
-    assert "synthetic example history" in fig.layout.title.text      # not a real astronaut
+    tip = " ".join(a.hovertext or "" for a in fig.layout.annotations)
+    assert "Synthetic example history" in tip                        # not a real astronaut
     assert any("baseline" in (a.text or "") for a in fig.layout.annotations)
 
 

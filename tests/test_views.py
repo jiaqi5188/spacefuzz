@@ -44,7 +44,7 @@ def test_crew_view_is_hud_and_adjusted_board_only():
     h = play(at)
     assert frames(at, "sf-hud") and frames(at, "sf-plan-board")
     assert not frames(at, "sf-body-map") and not frames(at, "sf-fuzz-log")
-    assert 'data-testid="playback-done"' in h and 'data-testid="indicators"' not in h
+    assert 'data-testid="playback-done"' in h and '<div class="sf-panel" data-testid="indicators"' not in h
 
 
 def test_surgeon_view_has_risk_comparison_measure_and_act_now():
@@ -139,3 +139,18 @@ def test_hud_waits_for_the_replay(monkeypatch):
     assert not frames(at, "sf-hud")                             # replaying: no final HUD yet
     at.run()
     assert frames(at, "sf-hud")
+
+
+@pytest.mark.parametrize("view", [None, "crew", "surgeon", "engine"])
+def test_every_screen_ends_with_the_data_sources_line(view):
+    """manual_v7 11/14 step 3 (optional footer): one grey line naming the data sources, at the
+    bottom of the dashboard and of each role screen; the text lives in ui_config."""
+    at = app(**({"view": view} if view else {}))
+    h = page_html(at)
+    assert ui_config.DATA_FOOTER == ("Data: NASA OSDR · NASA RadLab (MSL-RAD, DLR DosTel2) · "
+                                     "NOAA GOES · WESAD")
+    assert h.count('data-testid="data-footer"') == 1
+    import re
+    footer = re.search(r'<div class="([^"]*)" data-testid="data-footer">([^<]*)</div>', h)
+    assert footer and "sf-small" in footer[1] and footer[2] == ui_config.DATA_FOOTER
+    assert h.index('data-testid="data-footer"') > h.index('data-testid="topbar"')

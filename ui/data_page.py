@@ -210,7 +210,7 @@ def blocks() -> list[dict]:
         {"key": "stress", "title": "Stress effect", "figure": stress_figure,
          "model": f"Acute stress adds +{a3['stress_hr_delta_bpm']} bpm to heart rate and multiplies "
                   f"RMSSD by {a3['stress_rmssd_ratio']}: the parameters of causal chain 1 (stress "
-                  f"-> heart rate up, HRV down); the per-minute spread is the real fluctuation "
+                  f"→ heart rate up, HRV down); the per-minute spread is the real fluctuation "
                   f"laid over every simulated day.",
          "facts": f"95% CI {a3['stress_hr_delta_95ci'][0]}-{a3['stress_hr_delta_95ci'][1]} bpm and "
                   f"{a3['stress_rmssd_ratio_95ci'][0]}-{a3['stress_rmssd_ratio_95ci'][1]} (4 subjects, "

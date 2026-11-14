@@ -26,10 +26,10 @@ from spacefuzz import config
 import ui_config
 from ui import live_frame, theme
 from spacefuzz.core.plan_types import PlanType
-from ui.common import CIRCLED, clock, esc as _esc, no_change_text, pct as _pct, stage_times
+from ui.common import CIRCLED, clock, esc as _esc, no_change_text, pct as _pct, stage_times, tip
 
 FRAME_SELECTOR = 'iframe[srcdoc*="sf-plan-board"]'
-HEIGHT_PX = 300
+HEIGHT_PX = ui_config.BOARD_HEIGHT["column"]      # dashboard column (default)
 AXIS = (6 * 60, 30 * 60)                     # 06:00 today to 06:00 tomorrow
 HIGH_LOAD = {PlanType.EVA.value, PlanType.DOCKING.value, PlanType.PRECISION_MANUAL.value}
 SHORT = {"exercise_ARED": "ARED", "exercise_T2": "T2", "comm_session": "comm",
@@ -37,8 +37,21 @@ SHORT = {"exercise_ARED": "ARED", "exercise_T2": "T2", "comm_session": "comm",
          "personal_time": "personal", "maintenance": "maint.", "generic_high_load": "high load"}
 CATEGORY = {"EVA": "eva", "docking": "focus", "precision_manual": "focus", "sleep": "rest",
             "rest": "rest", "exercise_ARED": "exercise", "exercise_T2": "exercise"}
-LEVEL = {"self": "self-care", "crew": "crew reminder",
-         "ground": "reported to the ground flight surgeon"}
+LEVEL = {"self": "self-care", "crew": "crew reminder", "ground": "ground surgeon"}
+
+
+# A narrow block shows the short form instead of an ellipsis ("sci", not "scie...").
+PB = '<span class="pb">Plan board · </span>'     # title prefix, dropped when the board is narrow
+ABBR = {"science": "sci", "personal": "pers", "maint.": "mnt", "precision": "prec",
+        "docking": "dock", "high load": "load", "comm": "com"}
+
+
+def label_html(label: str) -> str:
+    """Full label, plus a short form the CSS shows when the block is narrow."""
+    short = ABBR.get(label)
+    if not short:
+        return f'<span class="full keep">{_esc(label)}</span>'
+    return f'<span class="full">{_esc(label)}</span><span class="abbr">{_esc(short)}</span>'
 
 
 def minutes(hhmm: str) -> int:
@@ -131,13 +144,13 @@ def legend(blocks: list[dict]) -> list[str]:
         elif b["status"] == "split":
             text = f"{b['label']} part {b['part']} {clock(t['start'])}, {dur(t['len'])} (split)"
         elif b["status"] == "resized":
-            text = (f"{b['label']} {clock(f['start'])}, {dur(f['len'])} -> "
+            text = (f"{b['label']} {clock(f['start'])}, {dur(f['len'])} → "
                     f"{clock(t['start'])}, {dur(t['len'])}")
         elif b["status"] == "removed":
             text = f"{b['label']} {clock(f['start'])} removed"
         else:
             delta = t["start"] - f["start"]
-            text = (f"{b['label']} {clock(f['start'])} -> {clock(t['start'])} "
+            text = (f"{b['label']} {clock(f['start'])} → {clock(t['start'])} "
                     f"(moved {'+' if delta >= 0 else '-'}{dur(abs(delta))})")
         out.append(f"{mark} {text}")
     return out
@@ -152,38 +165,35 @@ def risk_states(adj: dict | None) -> dict | None:
     rc = ui_config.RATING_COLOR
     before = {"p": pa["risk_before"], "text": _pct(pa["risk_before"]),
               "status": rc[adj["risk_rating"]],
-              "chip": f"Original plan: {adj['risk_rating']} · {LEVEL[adj['escalation']]}"}
+              "chip": f"Original: {adj['risk_rating']} · {LEVEL[adj['escalation']]}"}
     if pa["escalate_to_ground"]:
-        chip = f"Adjusted plan: {pa['rating_after']} · still red, report to ground"
+        chip = f"{pa['rating_after']} · still red, ground surgeon"
     else:
-        chip = (f"Adjusted plan: {pa['rating_after']} · "
-                f"{LEVEL[advice.RATING_ESCALATION[pa['rating_after']]].replace('reported to', 'report to')}")
+        chip = f"{pa['rating_after']} · {LEVEL[advice.RATING_ESCALATION[pa['rating_after']]]}"
     after = {"p": pa["risk_after"], "text": _pct(pa["risk_after"]),
              "status": rc[pa["rating_after"]], "chip": chip}
-    safer = None
-    for key, title in (("safer_option", "Safer option"),
-                       ("same_day_alternative", "Same-day alternative")):
+    safer, safer_tip = None, ""
+    for key, title in (("safer_option", "Safer"), ("same_day_alternative", "Same day")):
         o = pa.get(key)
         if o:
-            scope = ("risk for today only; the EVA is re-forecast at tomorrow's morning check"
-                     if key == "safer_option" or pa.get("scope") else "")
-            safer = (f"{title}: {'; '.join(o['changes'])} -> {_pct(o['risk'])} {o['rating']}"
-                     + (f" ({scope})" if scope else ""))
-    return {"before": before, "after": after, "safer": safer, "changed": bool(pa["changes"])}
+            safer_tip = ("Risk for today only; the EVA is re-forecast at tomorrow's morning "
+                         "check." if key == "safer_option" or pa.get("scope") else "")
+            safer = f"{title}: {'; '.join(o['changes'])} → {_pct(o['risk'])} {o['rating']}"
+    return {"before": before, "after": after, "safer": safer, "safer_tip": safer_tip,
+            "changed": bool(pa["changes"])}
 
 
 def midday_risk_states(m: dict) -> dict:
     """Risk states for the midday check: the afternoon only (midday.forecast_midday output)."""
     rc = ui_config.RATING_COLOR
     def level(rating):
-        return LEVEL[advice.RATING_ESCALATION[rating]].replace("reported to the ground flight surgeon",
-                                                 "report to ground")
-    after_chip = (f"Adjusted afternoon: {m['rating_after']} · still red, report to ground"
+        return LEVEL[advice.RATING_ESCALATION[rating]]
+    after_chip = (f"Afternoon: {m['rating_after']} · still red, ground surgeon"
                   if m["escalate_to_ground"] else
-                  f"Adjusted afternoon: {m['rating_after']} · {level(m['rating_after'])}")
+                  f"Afternoon: {m['rating_after']} · {level(m['rating_after'])}")
     return {"before": {"p": m["risk_before"], "text": _pct(m["risk_before"]),
                        "status": rc[m["rating_before"]],
-                       "chip": f"Afternoon as planned: {m['rating_before']} · "
+                       "chip": f"As planned: {m['rating_before']} · "
                                f"{level(m['rating_before'])}"},
             "after": {"p": m["risk_after"], "text": _pct(m["risk_after"]),
                       "status": rc[m["rating_after"]], "chip": after_chip},
@@ -219,6 +229,11 @@ body { margin:0; background:var(--sf-panel); color:var(--sf-ink);
   background:var(--sf-block-task); border:1px solid var(--sf-bg);
   transition: left %(t)dms ease-in-out, width %(t)dms ease-in-out, opacity %(t)dms ease,
               box-shadow .3s; }
+.blk { container-type:inline-size; }
+@media (max-width: 460px) { .pb { display:none; } }        /* narrow board: "ADJUSTED PLAN" */
+.blk .abbr { display:none; }
+@container (max-width: 52px) { .blk .full:not(.keep) { display:none; } .blk .abbr { display:inline; } }
+@container (max-width: 20px) { .blk .full, .blk .abbr { display:none !important; } }   /* no "p..." */
 .blk.eva { background:var(--sf-block-eva); } .blk.focus { background:var(--sf-block-focus); }
 .blk.rest { background:var(--sf-block-rest); color:var(--sf-muted); } .blk.exercise { background:var(--sf-block-exercise); }
 .blk .n { position:absolute; right:3px; bottom:2px; font-weight:700; color:%(yellow)s;
@@ -272,7 +287,7 @@ if (root.dataset.state === 'play' && R) {
       num.textContent = (100 * p).toFixed(1) + '%%'; num.style.color = COLORS[statusOf(p)];
       if (k < 1) requestAnimationFrame(roll);
       else { setRisk(R.after); if (R.changed) orig.textContent = R.before.chip;
-             document.getElementById('title').textContent = 'Plan board · adjusted plan';
+             document.getElementById('title').innerHTML = '<span class="pb">Plan board · </span>adjusted plan';
              done(); }
     })();
   }, AD);
@@ -283,7 +298,7 @@ if (root.dataset.state === 'play' && R) {
 
 def html_doc(mode: str, blocks: list[dict], risk: dict | None, events: list,
              forecast_s: float = 0.0, adjust_s: float = 0.0,
-             cutoff_min: int | None = None) -> str:
+             cutoff_min: int | None = None, height: int | None = None) -> str:
     """mode: idle (original plan) | play (animates at the reveals) | final (adjusted).
     cutoff_min (midday check): the part of the day before it is greyed as already happened,
     with a "now" line; only later tasks can change."""
@@ -320,7 +335,7 @@ def html_doc(mode: str, blocks: list[dict], risk: dict | None, events: list,
             f'{clock(span["start"])}, {dur(span["len"])}" data-to-left="{z_left:.3f}" '
             f'data-to-width="{z_w:.3f}" data-to-opacity="{z_op}" '
             f'style="left:{left:.3f}%;width:{width:.3f}%;opacity:{op}">'
-            f'{_esc(b["label"]) if max(a_w, z_w) >= 5.5 else ""}{mark}</div>')
+            f'{label_html(b["label"]) if max(a_w, z_w) >= 5.5 else ""}{mark}</div>')
     for e in events:
         s, w = geometry(minutes(e["start"]), minutes(e["end"]) - minutes(e["start"]))
         extra = f", {e['co2_ppm']:,} ppm" if e.get("co2_ppm") else ""
@@ -339,27 +354,28 @@ def html_doc(mode: str, blocks: list[dict], risk: dict | None, events: list,
     leg = "".join(f"<span>{_esc(x)}</span>" for x in legend(blocks)) if mode != "idle" else ""
     if risk and mode != "idle" and not risk["changed"]:
         leg = f"<span>{_esc(no_change_text(risk['after']['status'] == 'red'))}</span>"
-    safer = _esc(risk["safer"]) if risk and risk.get("safer") and mode != "idle" else ""
+    safer = (_esc(risk["safer"]) + tip(risk.get("safer_tip"), "u")
+             if risk and risk.get("safer") and mode != "idle" else "")
     marker = ('<div data-testid="plan-board-done" style="display:none">plan-board-done</div>'
               if end else "")
-    title = "Plan board · adjusted plan" if end else "Plan board · today"
+    title = PB + ("adjusted plan" if end else "today")
     past = ""
     if cutoff_min is not None:
         w = geometry(AXIS[0], cutoff_min - AXIS[0])[1]
         past = (f'<div class="past" style="width:{w:.3f}%"><span>already happened</span></div>'
                 f'<div class="now" data-testid="now-line" style="left:{w:.3f}%">'
                 f'<span>now {clock(cutoff_min)}</span></div>')
-    css = _CSS % {**pal, "h": HEIGHT_PX - 4, "t": int(ui_config.BOARD_S *
+    css = _CSS % {**pal, "h": (height or HEIGHT_PX) - 4, "t": int(ui_config.BOARD_S *
                                                         ui_config.ANIM_SCALE * 1000)}
     js = _JS % {"risk": theme.script_json(risk) if risk else "null",
                 "fc_ms": int(round(forecast_s * 1000)), "ad_ms": int(round(adjust_s * 1000)),
                 "t_ms": int(ui_config.BOARD_S * ui_config.ANIM_SCALE * 1000),
                 "colors": json.dumps(pal), "red": config.RISK_RED_ABOVE,
                 "green": config.RISK_GREEN_BELOW}
-    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{css}</style></head>
+    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{theme.tip_css()}{css}</style></head>
 <body><div id="sf-plan-board" data-testid="plan-board-figure" data-state="{mode}">
 <div class="top"><div><div class="h" id="title">{title}</div>
-<div class="idle">{"" if mode != "idle" else "Blocks slide to the adjusted plan after the forecast."}</div></div>
+<div class="idle">{"" if mode != "idle" else "Adjusted after the forecast."}</div></div>
 <div class="risk"><div class="num" id="num" style="color:{r_col}">{_esc(r_text)}</div>
 <div class="chip" id="chip" style="color:{r_col}">{_esc(r_chip)}</div>
 <div class="orig" id="orig">{_esc(r_orig)}</div></div></div>
@@ -371,7 +387,8 @@ def html_doc(mode: str, blocks: list[dict], risk: dict | None, events: list,
 # ---------------------------------------------------------------- Streamlit
 
 
-def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
+def show(static: dict, res: dict | None, shown: int, frames: list,
+         height: int | None = None) -> None:
     """Draw the board for app.py's playback frame `shown` (once per script run)."""
     playing = res is not None and 0 < shown < len(frames)
     mode = "idle" if res is None or shown == 0 else ("play" if playing else "final")
@@ -380,6 +397,7 @@ def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
     blocks = match_tasks(static["plan"], adjusted if mode != "idle" else None)
     risk = risk_states(adj) if mode != "idle" else None
     f_s, a_s = stage_times(frames) if mode == "play" else (0.0, 0.0)
-    doc = html_doc(mode, blocks, risk, static["plan"].get("events", []), f_s, a_s)
+    doc = html_doc(mode, blocks, risk, static["plan"].get("events", []), f_s, a_s,
+                   height=height)
     st.html('<div data-testid="plan-board" style="display:none">plan-board</div>')
-    live_frame.show(doc, HEIGHT_PX, key="plan_board")
+    live_frame.show(doc, height or HEIGHT_PX, key="plan_board")

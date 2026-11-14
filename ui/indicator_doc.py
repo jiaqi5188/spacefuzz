@@ -112,12 +112,13 @@ def thresholds(code_field: str) -> list[str]:
                      "(Jones et al. 2022); the "
                      "forecast uses the mean reaction time")
     if "eva_dose_ugy" in fields or "dose_rate" in fields:
-        lines.append(f"Crash rule: EVA dose above {c.RAD_EVA_DOSE_LIMIT_UGY:.0f} uGy "
-                     f"(single-EVA load signal); no EVA start during an SPE warning")
+        lines.append(f"Crash rule: the day's EVA dose (all EVAs) above "
+                     f"{c.RAD_EVA_DOSE_LIMIT_UGY:.0f} µGy (a load signal, not a NASA limit); "
+                     f"no EVA start during an SPE warning")
     if "blood_glucose" in fields:
         lines.append(f"Act now: < {c.GLUCOSE_LOW_MG_DL:.0f} mg/dL (severe < "
                      f"{c.ACT_NOW_GLUCOSE_SEVERE_LOW:.0f}); crash rule: < "
                      f"{c.METAB_PRE_EVA_GLUCOSE_MG_DL:.0f} mg/dL when an EVA starts")
     if "core_temp" in fields:
-        lines.append(f"Heat strain from +{c.HEAT_STRAIN_ONSET_C:.1f} degC core rise during EVA")
+        lines.append(f"Heat strain from +{c.HEAT_STRAIN_ONSET_C:.1f} °C core rise during EVA")
     return [f"{x} (illustrative)" for x in lines]

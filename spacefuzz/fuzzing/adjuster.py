@@ -1,5 +1,10 @@
 """Plan adjustment and re-test (plan 3.9), and the plan 3.10 output.
 
+Sleep is protected: an edit that pushes later tasks back first shortens or cancels personal
+time; if the pushed tasks would still reach a planned sleep, the candidate is not valid (an
+adjustment must not create the sleep debt it is meant to fix). The fuzzer's perturbations
+(mutator.py) still squeeze sleep on purpose: that is one of the what-ifs they test.
+
 1. Candidates: move the EVA later, start it after an environment event it overlaps
    (e.g. an SPE warning: the EVA starts when the event ends; timing rules and sleep are
    then judged by the engine as usual), shorten it, split it with a rest, insert a rest or
@@ -64,22 +69,56 @@ MOVES_EVA = {"delay", "after_event"}           # never combined with each other
 _dur = en._fmt_minutes                 # "1 h 30 min"
 
 
-def resolve(tasks, anchor=None) -> list:
+class SleepConflict(ValueError):
+    """Pushed tasks would reach a planned sleep: the adjustment is not valid."""
+
+
+SQUEEZABLE = frozenset({PlanType.PERSONAL_TIME})       # gives way first when tasks are pushed
+
+
+def resolve(tasks, anchor=None, protect_sleep: bool = True) -> list:
     """Sort tasks (anchor first on equal start) and push overlapping later tasks back in
-    turn; a pushed sleep keeps its end time (dropped if under one step)."""
+    turn. Personal time keeps its end time and gets shorter (dropped if under one step).
+    A planned sleep is never moved or shortened: reaching it raises SleepConflict.
+    protect_sleep=False (descriptions only) squeezes sleep like personal time. Personal time
+    that the anchor lands in is cut at the anchor (it gives way to the moved task)."""
+    if anchor is not None:
+        kept = []
+        for t in tasks:
+            if t is not anchor and t.type in SQUEEZABLE and \
+                    t.start_min < anchor.start_min < t.end_min:
+                if anchor.start_min - t.start_min >= STEP:
+                    kept.append(dataclasses.replace(t, duration_min=anchor.start_min - t.start_min))
+                continue
+            kept.append(t)
+        tasks = kept
     ts = sorted(tasks, key=lambda t: (t.start_min, 0 if t is anchor else 1))
     out, end = [], None
     for t in ts:
-        if end is not None and t.start_min < end:
-            if t.type is PlanType.SLEEP and t is not anchor:
+        if end is not None and t.start_min < end and t is not anchor:
+            if t.type is PlanType.SLEEP and protect_sleep:
+                raise SleepConflict(f"{pl.clock(t.start_min)} sleep would be pushed to "
+                                    f"{pl.clock(end)}")
+            if t.type in SQUEEZABLE or t.type is PlanType.SLEEP:
                 if t.end_min - end < STEP:
                     continue
                 t = dataclasses.replace(t, start_min=end, duration_min=t.end_min - end)
             else:
                 t = dataclasses.replace(t, start_min=end)
+        elif end is not None and t.start_min < end:
+            t = dataclasses.replace(t, start_min=end)
         out.append(t)
         end = t.end_min if end is None else max(end, t.end_min)
     return out
+
+
+def personal_time_note(before, after) -> str | None:
+    """How an edit squeezed personal time (named in the changes), or None."""
+    total = lambda ts: sum(t.duration_min for t in ts if t.type in SQUEEZABLE)   # noqa: E731
+    a, b = total(before), total(after)
+    if b >= a:
+        return None
+    return "Cancel personal time" if b == 0 else f"Shorten personal time to {_dur(b)}"
 
 
 def _task(start, minutes, typ: PlanType) -> pl.Task:
@@ -90,34 +129,34 @@ def _evas(tasks):
     return [t for t in tasks if t.type is PlanType.EVA]
 
 
-def _edit(kind: str, value, tasks: list) -> tuple[list, str]:
+def _apply(kind: str, value, tasks: list, protect: bool) -> tuple[list, str]:
     """Apply one adjustment; returns (tasks, English description)."""
     evas = _evas(tasks)
     eva = evas[0] if evas else None
     if kind == "delay":
         new = dataclasses.replace(eva, start_min=eva.start_min + value)
-        return resolve([new if t is eva else t for t in tasks], new), \
+        return _res(protect, [new if t is eva else t for t in tasks], new), \
             f"Move the EVA {_dur(value)} later"
     if kind == "after_event":           # value: (event end minute, event type, minutes moved)
         end, name, _ = value
         new = dataclasses.replace(eva, start_min=max(eva.start_min, end))
-        return resolve([new if t is eva else t for t in tasks], new), \
+        return _res(protect, [new if t is eva else t for t in tasks], new), \
             f"Start the EVA after the {name} ends ({pl.clock(end)})"
     if kind == "shorten":
         new = dataclasses.replace(eva, duration_min=max(config.ADJ_MIN_EVA_MIN,
                                                         eva.duration_min - int(value * 60)))
-        return resolve([new if t is eva else t for t in tasks]), \
+        return _res(protect, [new if t is eva else t for t in tasks]), \
             f"Shorten the EVA by {_dur(int(value * 60))}"
     if kind in ("rest", "nap") and eva is not None:
         new = _task(eva.start_min, value, PlanType.REST if kind == "rest" else PlanType.SLEEP)
         word = "rest" if kind == "rest" else "nap"
-        return resolve(tasks + [new], new), f"Insert a {_dur(value)} {word} before the EVA"
+        return _res(protect, tasks + [new], new), f"Insert a {_dur(value)} {word} before the EVA"
     if kind == "rest":                                  # no EVA: rest before precision work
         precise = [t for t in tasks if t.type in PRECISION_TYPES]
         out = list(tasks)
         for p in precise:
             new = _task(p.start_min, value, PlanType.REST)
-            out = resolve(out + [new], new)
+            out = _res(protect, out + [new], new)
         names = " / ".join(sorted({p.source_type for p in precise}))
         return out, f"Insert a {_dur(value)} rest before {names}"
     if kind == "split":
@@ -128,7 +167,7 @@ def _edit(kind: str, value, tasks: list) -> tuple[list, str]:
         b = dataclasses.replace(eva, start_min=eva.start_min + first + rest,
                                 duration_min=eva.duration_min - first)
         others = [t for t in tasks if t is not eva]
-        return resolve(others + [a, r, b], a), \
+        return _res(protect, others + [a, r, b], a), \
             f"Split the EVA into two parts with a {_dur(rest)} rest between"
     if kind == "move_training":
         train = [t for t in tasks if t.type in EXERCISE_TYPES and t.end_min <= eva.start_min]
@@ -137,7 +176,7 @@ def _edit(kind: str, value, tasks: list) -> tuple[list, str]:
         for t in train:
             end = max(e.end_min for e in _evas(out))
             new = dataclasses.replace(t, start_min=end)
-            out = resolve(out + [new], new)
+            out = _res(protect, out + [new], new)
             names.append(t.source_type)
         return out, f"Move {' and '.join(names)} to after the EVA"
     if kind == "postpone":
@@ -146,6 +185,19 @@ def _edit(kind: str, value, tasks: list) -> tuple[list, str]:
         return [t for t in tasks if t.type not in held], \
             f"Postpone {' and '.join(names)} to another day"
     raise ValueError(kind)
+
+
+def _res(protect: bool, tasks, anchor=None) -> list:
+    return resolve(tasks, anchor, protect_sleep=protect)
+
+
+def _edit(kind: str, value, tasks: list) -> tuple[list | None, str]:
+    """Apply one adjustment; returns (tasks, English description). tasks is None when the
+    edit would push a planned sleep (not a valid plan); the description is still given."""
+    try:
+        return _apply(kind, value, tasks, protect=True)
+    except SleepConflict:
+        return None, _apply(kind, value, tasks, protect=False)[1]
 
 
 def _cost(kind: str, value) -> float:
@@ -198,9 +250,14 @@ def _build(plan: pl.Plan, combo) -> Candidate | None:
     tasks, texts = list(plan.tasks), []
     for kind, value in sorted(combo, key=lambda kv: ORDER.index(kv[0])):
         tasks, text = _edit(kind, value, tasks)
+        if tasks is None:                    # would push a planned sleep: not valid
+            return None
         texts.append(text)
     if not _valid(tasks):
         return None
+    note = personal_time_note(plan.tasks, tasks)
+    if note:
+        texts.append(note)
     evas = _evas(tasks)
     if evas and "postpone" not in [k for k, _ in combo]:
         texts.append("EVA now " + ", ".join(f"{pl.clock(e.start_min)}-{pl.clock(e.end_min)}" for e in evas))

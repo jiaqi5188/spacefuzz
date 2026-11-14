@@ -29,10 +29,10 @@ app runs without the other raw data.
 - License: NASA open data.
 - Notes:
   - Daily dose is spread evenly over the day when resampled to 15-minute steps (divide by 96).
-  - Use only the `*_ISS` columns; `*_Ground` is the ground control chamber.
+  - Only the `*_ISS` columns are used; `*_Ground` is the ground control chamber.
   - **Readings before 2014-09-27 13:30 are not ISS cabin air and are excluded for all variables** (`config.EDA_ISS_START`; `env_trace` drops them, analysis A1 never uses them). The RR-1 mice flew on SpaceX CRS-4 (launch 2014-09-21 05:52 UTC, berthed to the ISS 2014-09-23 13:21 UTC; sources: NASA CRS-4 mission overview, Wikipedia "SpaceX CRS-4") and were then moved into the station. In the data: `CO2_ppm_ISS` is frozen at exactly 2646 ppm from 2014-09-21 04:24 to 09-27 13:25 (153 h, found by `quality_gate.stuck_mask`; normal days never stay unchanged for more than 75 min); temperature and humidity freeze at 26.8 degC / 70% for about a day after launch, then swing between 18.5 and 26.8 degC and up to 76% RH in transit, then sit warm and dry (down to 31% RH) after berthing. At 09-27 13:30 all three variables jump back to the ranges of the rest of the record (temperature SD 0.26 degC, RH SD 2.9 afterwards), which is taken as the installation time; that moment is inferred from the data, not from a mission log. The first day (09-20, the scrubbed launch attempt) is pad data. Figure: `notebooks/figures/A1_check_rr1_transit.png`.
   - The radiation table (`RR-1_radiation.csv`, from 2014-09-21) is cut the same way: whole days from 2014-09-28, the first full day after installation (32 days). Mean 0.202 mGy/day = **8.42 µGy/h** (GCR 0.131, SAA 0.072 mGy/day); with the pre-ISS days it was 0.204 / 8.50.
-  - End of record checked (2014-10-20 to the last reading 2014-11-01 03:54): no step change around the Dragon CRS-4 release (2014-10-25 13:57 UTC) or afterwards; CO2 never stays unchanged for more than 55 min, temperature / humidity plateaus (up to 460 min) are as long as on mid-record days. Kept. Default cabin day is 2014-10-15 (`config.ENV_DEFAULT_CABIN_START`).
+  - End of record checked (2014-10-20 to the last reading 2014-11-01 03:54): no step change around the Dragon CRS-4 release (2014-10-25 13:57 UTC) or afterwards; CO2 never stays unchanged for more than 55 min, temperature / humidity plateaus (up to 460 min) are as long as on mid-record days, so the end of the record is kept. Default cabin day is 2014-10-15 (`config.ENV_DEFAULT_CABIN_START`).
 
 ## 2. WESAD
 
@@ -55,7 +55,7 @@ app runs without the other raw data.
 - Files:
   - `DosTel2_ISS_2017-09-04_to_09-18.csv`: ~100 s cadence, dropping to ~20 s inside SAA passes.
   - `MSL-RAD_Mars_2017-09-04_to_09-18.csv`: ~17 min cadence, ~9 min during the event.
-- Columns: `timestamp, instrument_id, absorbed_dose_rate, instrument, module, spacecraft`. Dose rate is in **µGy/h** (1 mGy/day ≈ 41.7 µGy/h; convert before mixing with EDA).
+- Columns: `timestamp, instrument_id, absorbed_dose_rate, instrument, module, spacecraft`. Dose rate is in **µGy/h** (1 mGy/day ≈ 41.7 µGy/h; EDA's mGy/day values are converted to µGy/h before the two are combined).
 - License: NASA open data.
 - Notes:
   - DosTel2 spikes up to ~480 µGy/h roughly every 90 minutes are **South Atlantic Anomaly passes**, not solar events. They inflate 15-minute means.
@@ -72,7 +72,7 @@ app runs without the other raw data.
   - https://osdr.nasa.gov/bio/repo/data/studies/OSD-656 (Files → Immunoassay)
 - Files (original names kept so they can be traced back to OSDR):
   - `LSDS-7_Complete_Blood_Count_CBC_TRANSFORMED.csv`: 28 rows (4 crew × 7 timepoints), 20 analytes, each with value / `range_min` / `range_max`. Wide format.
-  - `LSDS-8_Comprehensive_Metabolic_Panel_CMP.upload_SUBMITTED.csv`: 531 rows, 19 analytes (glucose, BUN, creatinine, electrolytes, liver panel). **Long format** (`ANALYTE, VALUE, RANGE_MIN, RANGE_MAX, UNITS, SUBJECT_ID, SEX, timepoint`); pivot before joining with CBC.
+  - `LSDS-8_Comprehensive_Metabolic_Panel_CMP.upload_SUBMITTED.csv`: 531 rows, 19 analytes (glucose, BUN, creatinine, electrolytes, liver panel). **Long format** (`ANALYTE, VALUE, RANGE_MIN, RANGE_MAX, UNITS, SUBJECT_ID, SEX, timepoint`); pivoted to wide format before joining with CBC.
   - `LSDS-64_Multiplex_urine.immune.AlamarPanel_TRANSFORMED.csv`: 22 urine samples × ~200 immune proteins, concentration (NPQ) and percent-normalised value.
   - `LSDS-64_Multiplex_200plex v1-Target Information.csv`: protein name lookup for the immune panel.
 - Timepoints: L-92, L-44, L-3 (days before launch), R+1, R+45, R+82, R+194 (days after return). Crew IDs C001–C004.
@@ -91,9 +91,9 @@ app runs without the other raw data.
 - License: U.S. Government work, public domain.
 - Notes:
   - Science-quality reprocessed data. GOES-16 was not yet the operational satellite in 2017; see the ReadMe caveats.
-  - Use the XRS-B band (0.1–0.8 nm) for flare class. The window contains the X9.3 flare (2017-09-06) and the X8.2 flare (2017-09-10); the MSL-RAD event follows the latter.
+  - Flare class is read from the XRS-B band (0.1–0.8 nm). The window contains the X9.3 flare (2017-09-06) and the X8.2 flare (2017-09-10); the MSL-RAD event follows the latter.
   - Daily eclipse gaps (~56–82 min, flag=1) around the September equinox; left as gaps, not interpolated. Sporadic raw gaps of 3–6 min on 09-05, 09-10, 09-11, 09-12, 09-16, 09-18.
-  - Flare class: the issued classes X9.3 (09-06) and X8.2 (09-10) are 0.635x the GOES-16 science peak flux (1.464e-3, 1.292e-3 W/m2); the common x0.7 rule would overstate them by ~10%. `config.GOES_OFFICIAL_SCALE = 0.635` (analysis A2) makes `flare_class()` reproduce both; for other flares it is an estimate. Public material quotes the issued class.
+  - Flare class: the issued classes X9.3 (09-06) and X8.2 (09-10) are 0.635x the GOES-16 science peak flux (1.464e-3, 1.292e-3 W/m2); the common x0.7 rule would overstate them by ~10%. `config.GOES_OFFICIAL_SCALE = 0.635` (analysis A2) makes `flare_class()` reproduce both; for other flares it is an estimate. Project material quotes the issued class.
   - `xrsb_flag` bit meanings (from the variable's `flag_meanings` attribute): 1 = eclipse, 2 = bad_data, 4 = interpolated; values combine bits (e.g. 5 = eclipse + interpolated). The eclipse falls daily at about 05:10–06:31 UTC in this window.
 
 ## 6b. NOAA solar proton event list (operator D daily probability)

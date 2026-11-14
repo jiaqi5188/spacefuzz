@@ -41,7 +41,7 @@ def test_prefilled_with_the_scenario_example_and_how_to_measure():
     t = text(at)
     for how in ("2 readings", "Fingerstick", "wristband", "Samn-Perelli"):
         assert how in t, how
-    assert "example data" in t and "synthetic" in t
+    assert "example</span>" in t and "synthetic" in t            # tag + top bar
     assert "not used by the forecast" in t                     # food / water: recorded only
 
 
@@ -55,7 +55,8 @@ def test_save_edits_runs_the_gate_and_previews_act_now():
     t = text(at)
     assert "Data quality: ok" in t
     assert "Blood pressure 150/82 mmHg is out of range" in t        # act-now preview
-    assert "local profile" in t                                     # edited -> re-forecast
+    assert any("local profile" in (c.help or "") for c in at.caption)   # edited -> re-forecast
+    assert "few minutes" in t
 
 
 def test_implausible_entry_is_flagged_by_the_gate():
@@ -100,3 +101,21 @@ def test_a_test_without_plausible_responses_changes_nothing(monkeypatch):
     edits = at.session_state["checkin_edits"] if "checkin_edits" in at.session_state else {}
     assert MAIN not in edits
     assert "Mean -- ms" in text(at)
+
+
+def test_number_formats_integers_and_one_decimal_for_sleep():
+    """User review 2026-11-14: BP, glucose and sleep efficiency as integers; sleep 1 decimal."""
+    at = page()
+    fmt = {n.label: n.proto.format for n in at.number_input}
+    for label in ("Systolic (mmHg)", "Diastolic (mmHg)", "Blood glucose (mg/dL)",
+                  "Sleep efficiency (%)"):
+        assert fmt[label] == "%.0f", label
+    for label in ("Sleep last night (h)", "Night before (h)", "Two nights before (h)",
+                  "Water (L, 24 h)"):
+        assert fmt[label] == "%.1f", label
+
+
+def test_act_now_preview_says_the_dashboard_has_the_final_advice():
+    t = text(page())
+    i = t.index("Act now (preview)")
+    assert "Final advice follows the adjusted plan on the dashboard." in t[i:]

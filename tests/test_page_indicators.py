@@ -36,8 +36,11 @@ def test_page_shows_every_indicator_with_its_match_and_status():
     flat = plain_html(t)
     for r in doc.rows():
         assert r["indicator"] in t, r["indicator"]
-        assert plain_md(r["match"]) in flat, r["indicator"]     # the file's text, not a rewrite
-        assert plain_md(r["source"]) in flat and plain_md(r["risk"]) in flat
+        # the file's text, not a rewrite (only the site's arrow and unit symbols on screen)
+        site = lambda x: plain_md(x).replace(" -> ", " → ").replace("uGy", "µGy").replace(  # noqa: E731
+            "degC", "°C")
+        assert site(r["match"]) in flat, r["indicator"]
+        assert site(r["source"]) in flat and site(r["risk"]) in flat
         assert f'data-match="{r["match_kind"]}"' in t
         assert f'data-status="{r["status"]}"' in t
     assert "Not labelled" in t and "Indirect" in t and "Direct" in t

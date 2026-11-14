@@ -93,9 +93,10 @@ def test_html_play_and_marker():
     assert "Return to the airlock if heart rate stays above 140 bpm" in pre
     assert "11:30" in pre and "13:45" in pre
     assert 'data-testid="hud-done"' not in pre                     # added by the replay
-    assert "worst 5%: <span class=\"tail\">145</span> bpm (colour) · limit 140 bpm" in pre
-    assert "worst 5%: <span class=\"tail\">96.0</span>% (colour)" not in pre      # 1 decimal only for temp
-    assert "worst 5%: <span class=\"tail\">96</span>% (colour) · limit 94%" in pre
+    assert "worst 5% <span class=\"tail\">145</span> · limit 140<" in pre
+    assert "worst 5% <span class=\"tail\">96.0</span>" not in pre      # 1 decimal only for temp
+    assert "worst 5% <span class=\"tail\">96</span> · limit 94<" in pre
+    assert "not live telemetry" in pre and 'class="sf-tip u"' in pre
     assert "http://" not in doc and "https://" not in doc
     none = hud.html_doc(None, state.make_baseline(), start_min=390)
     assert "after the forecast" in none

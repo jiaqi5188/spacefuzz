@@ -200,6 +200,7 @@
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Insert a 1 h nap before the EVA",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-17:30"
     ],
     "cost": 2.0,
@@ -209,24 +210,27 @@
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Insert a 1 h rest before the EVA",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-17:30"
     ],
     "cost": 2.0,
-    "screen_risk": 0.1972
+    "screen_risk": 0.198
    },
    {
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Move the EVA 1 h later",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-17:30"
     ],
     "cost": 2.0,
-    "screen_risk": 0.2104
+    "screen_risk": 0.2112
    },
    {
     "changes": [
      "Move the EVA 1 h later",
      "Insert a 1 h nap before the EVA",
+     "Shorten personal time to 1 h",
      "EVA now 12:00-18:30"
     ],
     "cost": 2.0,
@@ -236,23 +240,26 @@
     "changes": [
      "Move the EVA 1 h later",
      "Insert a 1 h rest before the EVA",
+     "Shorten personal time to 1 h",
      "EVA now 12:00-18:30"
     ],
     "cost": 2.0,
-    "screen_risk": 0.1988
+    "screen_risk": 0.1996
    },
    {
     "changes": [
      "Move the EVA 2 h later",
+     "Shorten personal time to 1 h",
      "EVA now 12:00-18:30"
     ],
     "cost": 2.0,
-    "screen_risk": 0.212
+    "screen_risk": 0.2128
    },
    {
     "changes": [
      "Move the EVA 30 min later",
      "Insert a 1 h 30 min nap before the EVA",
+     "Shorten personal time to 1 h",
      "EVA now 12:00-18:30"
     ],
     "cost": 2.0,
@@ -279,6 +286,7 @@
     "changes": [
      "Insert a 1 h nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-14:15, 15:15-18:30"
     ],
     "cost": 2.5,
@@ -288,6 +296,7 @@
     "changes": [
      "Insert a 1 h rest before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-14:15, 15:15-18:30"
     ],
     "cost": 2.5,
@@ -297,46 +306,51 @@
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Insert a 1 h 30 min nap before the EVA",
+     "Shorten personal time to 30 min",
      "EVA now 11:30-18:00"
     ],
     "cost": 2.5,
-    "screen_risk": 0.1888
+    "screen_risk": 0.1892
    },
    {
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 1 h",
      "EVA now 10:00-13:15, 14:15-17:30"
     ],
     "cost": 2.5,
-    "screen_risk": 0.1252
+    "screen_risk": 0.126
    },
    {
     "changes": [
      "Move the EVA 1 h later",
      "Insert a 1 h 30 min nap before the EVA",
+     "Shorten personal time to 30 min",
      "EVA now 12:30-19:00"
     ],
     "cost": 2.5,
-    "screen_risk": 0.1876
+    "screen_risk": 0.188
    },
    {
     "changes": [
      "Move the EVA 1 h later",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 1 h",
      "EVA now 11:00-14:15, 15:15-18:30"
     ],
     "cost": 2.5,
-    "screen_risk": 0.1156
+    "screen_risk": 0.1164
    },
    {
     "changes": [
      "Move the EVA 2 h later",
      "Insert a 30 min rest before the EVA",
+     "Shorten personal time to 30 min",
      "EVA now 12:30-19:00"
     ],
     "cost": 2.5,
-    "screen_risk": 0.2016
+    "screen_risk": 0.2044
    },
    {
     "changes": [
@@ -360,19 +374,21 @@
     "changes": [
      "Insert a 1 h 30 min nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 30 min",
      "EVA now 11:30-14:45, 15:45-19:00"
     ],
     "cost": 3.0,
-    "screen_risk": 0.086
+    "screen_risk": 0.0864
    },
    {
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Move the EVA 2 h later",
+     "Cancel personal time",
      "EVA now 12:00-18:30"
     ],
     "cost": 3.0,
-    "screen_risk": 0.2068
+    "screen_risk": 0.208
    },
    {
     "changes": [
@@ -387,19 +403,21 @@
     "changes": [
      "Move the EVA 2 h later",
      "Insert a 1 h nap before the EVA",
+     "Cancel personal time",
      "EVA now 13:00-19:30"
     ],
     "cost": 3.0,
-    "screen_risk": 0.1948
+    "screen_risk": 0.196
    },
    {
     "changes": [
      "Move the EVA 2 h later",
      "Insert a 1 h rest before the EVA",
+     "Cancel personal time",
      "EVA now 13:00-19:30"
     ],
     "cost": 3.0,
-    "screen_risk": 0.2012
+    "screen_risk": 0.2044
    },
    {
     "changes": [
@@ -433,28 +451,31 @@
      "Move the EVA 30 min later",
      "Insert a 1 h nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 30 min",
      "EVA now 11:30-14:45, 15:45-19:00"
     ],
     "cost": 3.0,
-    "screen_risk": 0.1008
+    "screen_risk": 0.1012
    },
    {
     "changes": [
      "Move the EVA 2 h later",
      "Insert a 1 h 30 min nap before the EVA",
+     "Cancel personal time",
      "EVA now 13:30-20:00"
     ],
     "cost": 3.5,
-    "screen_risk": 0.1892
+    "screen_risk": 0.19
    },
    {
     "changes": [
      "Move the EVA 2 h later",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 12:00-15:15, 16:15-19:30"
     ],
     "cost": 3.5,
-    "screen_risk": 0.1144
+    "screen_risk": 0.1176
    },
    {
     "changes": [
@@ -479,30 +500,33 @@
      "Move the EVA 30 min later",
      "Insert a 1 h 30 min nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 12:00-15:15, 16:15-19:30"
     ],
     "cost": 3.5,
-    "screen_risk": 0.0832
+    "screen_risk": 0.0836
    },
    {
     "changes": [
      "Move the EVA 1 h later",
      "Insert a 1 h nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 12:00-15:15, 16:15-19:30"
     ],
     "cost": 3.5,
-    "screen_risk": 0.0944
+    "screen_risk": 0.0952
    },
    {
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Insert a 1 h nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 11:00-14:15, 15:15-18:30"
     ],
     "cost": 3.5,
-    "screen_risk": 0.1028
+    "screen_risk": 0.1036
    },
    {
     "changes": [
@@ -546,20 +570,22 @@
      "Move the EVA 1 h later",
      "Insert a 1 h 30 min nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 12:30-15:45, 16:45-20:00"
     ],
     "cost": 4.0,
-    "screen_risk": 0.0884
+    "screen_risk": 0.0888
    },
    {
     "changes": [
      "Move exercise_ARED to after the EVA",
      "Insert a 1 h 30 min nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 11:30-14:45, 15:45-19:00"
     ],
     "cost": 4.0,
-    "screen_risk": 0.0904
+    "screen_risk": 0.0908
    },
    {
     "changes": [
@@ -624,10 +650,11 @@
      "Move the EVA 2 h later",
      "Insert a 1 h nap before the EVA",
      "Split the EVA into two parts with a 1 h rest between",
+     "Cancel personal time",
      "EVA now 13:00-16:15, 17:15-20:30"
     ],
     "cost": 4.5,
-    "screen_risk": 0.1008
+    "screen_risk": 0.1012
    },
    {
     "changes": [
@@ -677,16 +704,6 @@
    },
    {
     "changes": [
-     "Move the EVA 2 h later",
-     "Insert a 1 h 30 min nap before the EVA",
-     "Split the EVA into two parts with a 1 h rest between",
-     "EVA now 13:30-16:45, 17:45-21:00"
-    ],
-    "cost": 5.0,
-    "screen_risk": 0.0896
-   },
-   {
-    "changes": [
      "Shorten the EVA by 2 h",
      "Insert a 1 h 30 min nap before the EVA",
      "EVA now 11:30-16:00"
@@ -708,10 +725,11 @@
      "Shorten the EVA by 1 h",
      "Move the EVA 2 h later",
      "Split the EVA into two parts with a 1 h rest between",
+     "Shorten personal time to 1 h",
      "EVA now 12:00-14:45, 15:45-18:30"
     ],
     "cost": 5.5,
-    "screen_risk": 0.0824
+    "screen_risk": 0.0828
    },
    {
     "changes": [

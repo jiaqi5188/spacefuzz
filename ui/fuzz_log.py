@@ -69,7 +69,7 @@ def describe_ops(ops: list[dict]) -> str:
             if p.get("spo2_drop"):
                 effects.append(f"SpO2 -{p['spo2_drop']:.1f}%")
             parts.append(f"CO2 excursion +{100 * p.get('co2_excursion', 0):.0f}%"
-                         + (" -> " + ", ".join(effects) if effects else ""))
+                         + (" → " + ", ".join(effects) if effects else ""))
         elif op == "C" and p.get("task") is None:
             parts.append("no free time left for an extra task")
         elif op == "C":
@@ -240,7 +240,7 @@ def simplest_near_miss(events: list, hist: dict, plan_fitness: float | None = No
     groups = c["head"][:1] + c["items"] + c["head"][1:]
     k = len(groups)
     rule = rule_text(e["nearest_rule"])
-    fit = (f"fitness {plan_fitness:.2f} -> {e['fitness']:.2f}, " if plan_fitness is not None
+    fit = (f"fitness {plan_fitness:.2f} → {e['fitness']:.2f}, " if plan_fitness is not None
            else f"fitness {e['fitness']:.2f}, ")
     lines = [f"[near ] fewest changes that bring this day closer to a crash than the plan as "
              f"written (among the {len(events)} recorded new lows): round {e['round']:,}, {fit}"
@@ -390,7 +390,7 @@ def log_lines(res: dict, start_min: int) -> list[dict]:
     rt = pa.get("retest") or {}
     if rt.get("slip_margin"):
         add("adjust", 0.8, f"[retest] schedule slip: {rt['slip_margin']}")
-    add("adjust", 1.0, f"[adjust] {_pct(pa['risk_before'])} -> {_pct(pa['risk_after'])} "
+    add("adjust", 1.0, f"[adjust] {_pct(pa['risk_before'])} → {_pct(pa['risk_after'])} "
                        f"{pa['rating_after']}", "result")
     return lines
 

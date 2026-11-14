@@ -22,9 +22,19 @@ KIND_MARK = {"Direct": "●", "Indirect": "◐", "Not labelled": "○"}   # shap
 
 
 
+SITE_TEXT = ((" -> ", " → "), ("uGy", "µGy"), ("degC", "°C"))
+
+
+def site_text(text: str) -> str:
+    """The source file is plain ASCII; on screen use the site's arrow and unit symbols."""
+    for a, b in SITE_TEXT:
+        text = text.replace(a, b)
+    return text
+
+
 def md_inline(text: str) -> str:
     """The file's Markdown links / italics / code as HTML (the file is our own, trusted)."""
-    t = esc(text)
+    t = esc(site_text(text))
     t = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
                r'<a href="\2" target="_blank" rel="noopener">\1</a>', t)
     t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
@@ -38,7 +48,7 @@ def card(r: dict) -> str:
     return (
         f'<div class="sf-panel ind" data-match="{r["match_kind"]}" data-status="{esc(r["status"])}">'
         f'<div class="row"><b class="name">{esc(r["indicator"])}</b>'
-        f'<span class="unit">{esc(r["unit"])}</span></div>'
+        f'<span class="unit">{esc(site_text(r["unit"]))}</span></div>'
         f'<div class="badges"><span class="badge {r["match_kind"].replace(" ", "-").lower()}">'
         f'{KIND_MARK[r["match_kind"]]} {r["match_kind"]}</span>'
         f'<span class="badge {"checked" if checked else "unchecked"}">source '

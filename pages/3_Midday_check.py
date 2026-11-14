@@ -17,7 +17,7 @@ from spacefuzz.fuzzing import midday
 from spacefuzz.core import plan as pl
 import ui_config
 from ui import actions, body_map, checkin_store, live_frame, plan_board, theme
-from ui.common import esc, no_change_text
+from ui.common import brief_html, esc, illustrative_badge, no_change_text, tip
 
 CUT = ui_config.MIDDAY_CHECK_MIN
 RUN = "midday"                     # ui/actions.py job name
@@ -53,12 +53,14 @@ def result_for(name: str, value: float) -> dict:
 
 def record_html(r: dict) -> str:
     rows = "".join(
-        f'<div>• {esc(v["clock"])} {esc(body_map.rule_text(v["rule"]))}: recorded after the fact and '
-        f'reported to the flight surgeon.</div>' for v in r["morning_violations"])
-    body = rows or "<div>Nothing before 14:00 breaks a rule with the re-measured value.</div>"
+        f'<div>• {esc(v["clock"])} {esc(body_map.rule_text(v["rule"]))}'
+        f'{tip("Recorded after the fact and reported to the flight surgeon.")}</div>'
+        for v in r["morning_violations"])
+    body = rows or "<div>Nothing before 14:00 breaks a rule.</div>"
     return (f'<div class="sf-panel" data-testid="midday-record" style="opacity:.85">'
-            f'<div class="sf-h">Already happened (before {esc(r["cutoff"])}; a record, not a '
-            f'forecast)</div>{body}</div>')
+            f'<div class="sf-h">Already happened · before {esc(r["cutoff"])}'
+            f'{tip("A record, not a forecast: only what can still happen is forecast.")}</div>'
+            f'{body}</div>')
 
 
 def risk_html(r: dict) -> str:
@@ -69,17 +71,15 @@ def risk_html(r: dict) -> str:
     still_red = ui_config.RATING_COLOR[r["rating_after"]] == "red"
     changes = "".join(f"<div>• {esc(c)}</div>" for c in r["changes"]) or \
         f"<div>{esc(no_change_text(still_red, 'afternoon'))}</div>"
+    more = (f"{r['candidates']} afternoon candidates screened; results: {r['profile']} profile."
+            + (f" Remaining afternoon risk: {rest}." if rest else ""))
     return (f'<div class="sf-panel" data-testid="midday-risk"><div class="sf-h">Afternoon risk '
-            f'(from {esc(r["cutoff"])})</div><div style="font-size:36px;font-weight:700">'
+            f'· from {esc(r["cutoff"])}{tip(more)}</div><div style="font-size:36px;font-weight:700">'
             f'<span style="color:var(--sf-{b["status"]})">{esc(b["text"])}</span> → '
             f'<span style="color:var(--sf-{a["status"]})">{esc(a["text"])} '
             f'{esc(r["rating_after"])}</span></div><div>{esc(b["chip"])}</div>'
-            f'<div>{esc(a["chip"])}</div><div class="sf-h" style="margin-top:8px">Changes '
-            f'(afternoon only)</div>{changes}'
-            + (f'<div class="sf-small" style="margin-top:6px;color:var(--sf-muted)">Remaining '
-               f'afternoon risk: {esc(rest)}.</div>' if rest else "")
-            + f'<div class="sf-small" style="color:var(--sf-muted)">{r["candidates"]} afternoon '
-              f'candidates screened · results: {esc(r["profile"])} profile</div></div>')
+            f'<div>{esc(a["chip"])}</div><div class="sf-h" style="margin-top:8px">Changes'
+            f'{tip("Afternoon only: the morning cannot change any more.")}</div>{changes}</div>')
 
 
 def main() -> None:
@@ -90,8 +90,8 @@ def main() -> None:
     p = plan_header(name)
     st.html(f'<div class="sf-topbar" data-testid="midday-topbar"><span>Mars Base</span>'
             f'<span>{esc(ui_config.CREW_MEMBER_NAME)}</span><span>{esc(p.get("date", ""))}</span>'
-            f'<span>Earth delay {esc(p.get("comm_delay_min", "?"))} min</span><span>Check window: Midday '
-            f'({pl.clock(CUT)})</span><span class="sub">{esc(ui_config.SCENARIOS.get(name, name))}'
+            f'<span>Earth delay {esc(p.get("comm_delay_min", "?"))} min</span><span>Midday check {pl.clock(CUT)}'
+            f'</span>{illustrative_badge()}<span class="sub">{esc(ui_config.SCENARIOS.get(name, name))}'
             f'</span></div>')
     if name not in ui_config.MIDDAY_EXAMPLE:
         st.info("The midday demo is set up for the main scenario (sleep debt + EVA): choose it "
@@ -102,31 +102,34 @@ def main() -> None:
     with left:
         prompt = morning_prompt(name)
         st.html(f'<div class="sf-panel"><div class="sf-h">Re-measure first</div>'
-                f'<div>{esc(prompt)}</div></div>')
+                f'<div>{brief_html(prompt)}</div></div>')
         morning = checkin_store.example(name)["sleep_last_night_h"]
         example = ui_config.MIDDAY_EXAMPLE[name]["sleep_last_night_h"]
         value = st.number_input("Last night's sleep, wristband record (h)", 0.0, 16.0,
-                                float(example), 0.1, key="midday_sleep")
-        st.caption(f"{example:g} h is an example input for the demo. This morning's self-report "
-                   f"was {morning:g} h; the wristband record replaces it.")
+                                float(example), 0.1, key="midday_sleep", format="%.1f",
+                                help=f"{example:g} h is an example input for the demo. This "
+                                     f"morning's self-report was {morning:g} h; the wristband "
+                                     f"record replaces it.")
         if checkin_store.edited(name):
-            st.caption("The midday check starts from the example morning check-in and its "
-                       "morning plan; edits made on the check-in page are not used here.")
+            st.caption("Check-in edits are not used here.",
+                       help="The midday check starts from the example morning check-in and "
+                            "its morning plan.")
         job = actions.job(RUN)
         actions.button(st, "Run midday forecast", "Running midday forecast...", RUN,
                        job is not None, "run_midday",       # value read at click time
                        lambda: {"run": f"{name}|{st.session_state['midday_sleep']:g}"})
-        status = ("Re-forecasting the afternoon (cached for the example input; another value "
-                  "takes a few minutes)..." if job else
-                  "Enter the wristband value, then run the afternoon forecast.")
+        status = ("Re-forecasting the afternoon..." + tip("Cached for the example input; "
+                                                           "another value takes a few minutes.")
+                  if job else "Enter the wristband value, then run.")
         st.html(f'<div class="sf-status" data-testid="run-status">{status}</div>')
         actions.show_error(st)             # only after a failed run
+        record_slot = st.empty()           # "Already happened" goes here, under the button
     with right:
         if job:
             st.session_state["midday_shown"] = job["run"]
         ran = st.session_state.get("midday_shown")
         if not ran or not ran.startswith(name + "|"):
-            st.caption("Enter the wristband value and press Run midday forecast.")
+            st.caption("The afternoon forecast appears here.")
             return
         try:
             r = result_for(name, float(ran.split("|")[1]))
@@ -138,15 +141,16 @@ def main() -> None:
                 actions.fail(msg)          # unlocks the button; shown under it on the rerun
             st.info(msg)
             return
-        st.html(record_html(r))
+        record_slot.html(record_html(r))   # left column: balances the two columns
         st.html(risk_html(r))
         blocks = plan_board.match_tasks(r["plan_before"], r["plan_after"])
         risk = plan_board.midday_risk_states(r)
         f_s, a_s = 0.3 * ui_config.ANIM_SCALE, 1.2 * ui_config.ANIM_SCALE
         doc = plan_board.html_doc("play" if job else "final", blocks, risk,
                                   r["plan_before"].get("events", []), forecast_s=f_s,
-                                  adjust_s=a_s, cutoff_min=CUT)
-        live_frame.show(doc, plan_board.HEIGHT_PX, key="midday_board")
+                                  adjust_s=a_s, cutoff_min=CUT,
+                                  height=ui_config.BOARD_HEIGHT["wide"])
+        live_frame.show(doc, ui_config.BOARD_HEIGHT["wide"], key="midday_board")
         st.html('<div data-testid="midday-done" style="display:none">midday-done</div>')
     if job:                       # let the board finish its slide, then unlock the button
         time.sleep(a_s + ui_config.BOARD_S * ui_config.ANIM_SCALE)

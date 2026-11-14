@@ -18,7 +18,7 @@ Match column was found in the source text; all 14 rows are "checked". For blood 
 AHA/ACC guideline text could not be opened automatically, so the thresholds were checked by
 hand on the AHA public page (https://heart.org/bplevels).
 
-**Plan variable** is the name in the plan's digital-twin table (plan 2.2); **Code field**
+**Plan variable** is the name SpaceFuzz uses for this indicator in its model and plan files; **Code field**
 is where the data actually lives: `model.simulate()` output columns, `state.CheckIn`
 fields and `env_trace` trace columns. The indicator page reads the Code field
 (`tests/test_indicator_sources.py` checks that each one exists).
@@ -44,18 +44,17 @@ fields and `env_trace` trace columns. The indicator page reads the Code field
 
 - **Why forecast before an EVA:** the main scenario is built around a spacewalk, and EVA
   Operations is its own HRP risk ([HRP risk](https://www.nasa.gov/reference/risk-of-injury-and-compromised-performance-from-extravehicular-activity-eva/) · [HHP page](https://www.nasa.gov/directorates/esdmd/hhp/eva-operations-risk/)).
-  The indicator page can cite it as the background for running the forecast before
-  EVA, separately from its use for core body temperature above.
+  It is the background for running the forecast before an EVA, separate from its use for
+  core body temperature above.
 - **Shelter during a solar particle event:** NASA's radiation risk pages state that
   shielding is effective against solar particle events but not against galactic cosmic
   rays. This supports the advice to move into the shielded area during an SPE warning,
   while the steady background dose cannot be avoided that way.
 - **Reaction time vs the lapse line:** Jones et al. 2022 count a single PVT-B response
   >= 355 ms as a lapse of attention. The model forecasts a *mean* reaction time; for the
-  unmutated main plan it rises from 312 ms at check-in to 359 ms at the end of the EVA
-  and peaks at 370 ms at 20:30 (safe day: at most 279 ms). Say "the forecast mean
-  reaction time passes the 355 ms lapse threshold", and that model parameters are
-  illustrative; recompute the numbers before quoting them.
+  original main plan it rises from 312 ms at check-in to 361 ms at the end of the EVA
+  and peaks at 370 ms at 20:30 (safe day: at most 279 ms): the forecast mean passes the
+  355 ms lapse line. Model parameters are illustrative.
 - Rows for cognitive fatigue, the Samn-Perelli rating and food and water intake were
   mapped by analogy with the rest of the table; they were checked against their sources
   like the others on 2026-11-13.
@@ -63,8 +62,8 @@ fields and `env_trace` trace columns. The indicator page reads the Code field
 ## Supplementary source excerpts
 
 The quotes behind the supplementary sources merged into the table above (extracted from
-the source documents; PDFs read as text). Status in the table is changed only by the
-person who checks each row.
+the source documents; PDFs read as text). The Status column records the result of a person
+checking each row against its source.
 
 | Row(s) | Candidate source | Supporting text | Link |
 | --- | --- | --- | --- |

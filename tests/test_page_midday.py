@@ -50,8 +50,8 @@ def test_remeasure_input_is_an_example_and_shows_the_morning_value():
     n = next(x for x in at.number_input if x.label.startswith("Last night's sleep"))
     assert n.value == ui_config.MIDDAY_EXAMPLE[MAIN]["sleep_last_night_h"]
     t = text(at)
-    assert "example input" in t and "6.2 h" in t                  # the morning self-report
-    assert "Check window: Midday (14:00)" in t
+    assert "example input" in n.help and "6.2 h" in n.help        # the morning self-report
+    assert "Midday check 14:00" in t and 'data-testid="illustrative"' in t
 
 
 def test_run_shows_afternoon_risk_morning_record_and_board():
@@ -59,9 +59,9 @@ def test_run_shows_afternoon_risk_morning_record_and_board():
     next(b for b in at.button if b.label == "Run midday forecast").click().run()
     assert not at.exception, at.exception
     t = text(at)
-    assert "Afternoon risk (from 14:00)" in t and "100.0%" in t and "4.8%" in t
+    assert "Afternoon risk · from 14:00" in t and "100.0%" in t and "4.8%" in t
     assert "Already happened" in t and "11:30" in t
-    assert "recorded after the fact and reported to the flight surgeon" in t
+    assert "Recorded after the fact and reported to the flight surgeon" in t
     assert "Cancel the afternoon EVA" in t
     assert "Remaining afternoon risk" in t and "heart rate" in t
     assert 'data-testid="midday-done"' in t
@@ -111,7 +111,8 @@ def test_says_when_the_morning_check_in_was_edited():
     from ui import checkin_store as cs
     at = page({"checkin_edits": {MAIN: {**cs.example(MAIN), "systolic_bp": 150}}})
     assert not at.exception
-    assert "example morning check-in" in text(at)
+    assert "Check-in edits are not used here" in text(at)
+    assert any("example morning check-in" in (c.help or "") for c in at.caption)
 
 
 def test_run_locks_until_the_board_has_played(monkeypatch):
@@ -153,3 +154,9 @@ def test_missing_morning_result_shows_a_note_and_unlocks(monkeypatch):
     assert any("press Run Forecast" in e.value for e in at.error)   # stays after the rerun
     assert not next(b for b in at.button if b.label == "Run midday forecast").disabled
 
+
+
+def test_sleep_input_shows_one_decimal():
+    at = page()
+    n = next(x for x in at.number_input if x.label.startswith("Last night's sleep"))
+    assert n.proto.format == "%.1f"

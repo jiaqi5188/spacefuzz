@@ -29,7 +29,7 @@ from spacefuzz.fuzzing import mutator as mu
 from spacefuzz.core import state
 import ui_config
 from ui import checkin_store, live_frame, theme
-from ui.common import esc as _esc, pct as _pct, stage_times
+from ui.common import esc as _esc, pct as _pct, stage_times, tip
 
 FRAME_SELECTOR = 'iframe[srcdoc*="sf-body-map"]'
 HEIGHT_PX = 700
@@ -72,7 +72,7 @@ COMPOSITE_TEXT = {
                       "out of range",
     "cognitive": "high cognitive fatigue together with low blood oxygen",
     "metabolic": "low blood glucose when an EVA starts",
-    "radiation_dose": "EVA radiation dose above the single-EVA limit",
+    "radiation_dose": "EVA radiation dose of the day above its limit",
 }
 WEEKLY = "Slow-changing: checked at the weekly exam, not part of today's forecast."
 
@@ -543,6 +543,10 @@ def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -
     dose = current["eva_dose_ugy"]
     fill = min(100.0, 100.0 * dose / limit)
     rad = status["radiation"]["share"]
+    dose_note = (f"Radiation (operator D): {dose:.1f} µGy planned, limit {limit:.0f} µGy for the "
+                 f"day's EVAs; radiation crashes in {rad} of simulations. Sources: MSL-RAD (Mars "
+                 f"surface), GOES flare timing (Earth-orbit proxy). Musculoskeletal and immune: "
+                 f"weekly exam, not forecast.")
     marker = ('<div data-testid="body-map-done" style="display:none">body-map-done</div>'
               if mode == "revealed" else "")
     beat = 60.0 / max(40.0, current.get("resting_hr", 70.0))
@@ -552,18 +556,15 @@ def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -
     beam = (f'<g class="beam"><rect x="100" y="-38" width="200" height="40" fill="url(#beam)" '
             f'clip-path="url(#body-clip)" class="beam-glow"/>'
             f'<rect x="60" y="1.2" width="280" height="1.6" fill="url(#beamline)"/></g>')
-    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{css}</style></head>
+    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{theme.tip_css()}{css}</style></head>
 <body><div id="sf-body-map" data-testid="body-map-figure" data-state="{mode}">
 <div class="top"><div class="h">Bio-scan · tap a system</div>
 <div class="chip"><span class="s-idle">STANDBY</span><span class="s-play">SCANNING</span><span class="s-done">SCAN COMPLETE</span></div></div>
 <div class="stage"><svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Body map"><defs>{_defs()}</defs>{_figure_svg()}{_vitals_svg(current)}{"".join(organs[k] for k in DRAW_ORDER)}{beam}{"".join(callouts)}</svg></div>
 <div class="dose" data-testid="dose-bar" data-status="{status["radiation"]["status"]}"
  style="--dose:{fill:.0f}%;--rad:{pal.get(status["radiation"]["status"], pal["grey"])}">
-<span class="h">EVA dose</span><div class="tube"><div class="fill"></div><div class="limit" title="limit"></div></div>
+<span class="h">EVA dose{tip(dose_note, "u")}</span><div class="tube"><div class="fill"></div><div class="limit" title="limit"></div></div>
 <span class="v">{dose:.0f} / {limit:.0f} µGy</span></div>
-<div class="small">Radiation (operator D): {dose:.1f} µGy planned, single-EVA limit {limit:.0f} µGy
-(illustrative); radiation crashes in {_esc(rad)} of simulations. Sources: MSL-RAD (Mars surface),
-GOES flare timing (Earth-orbit proxy). Musculoskeletal, immune: weekly exam, not forecast.</div>
 <div class="pop" id="pop" data-testid="body-map-popup"></div>
 {marker}
 </div><script>{js}</script></body></html>"""
