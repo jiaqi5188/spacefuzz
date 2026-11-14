@@ -1,0 +1,25 @@
+{
+  "plan": "main_sleep_debt_eva",
+  "source": "synthetic_example",
+  "check_window": "morning",
+  "check_time": "06:30",
+  "wake_time": "06:00",
+  "sleep_last_night_h": 6.2,
+  "sleep_last_3_nights_h": [
+    4.3,
+    4.5,
+    6.2
+  ],
+  "sleep_efficiency_pct": 81,
+  "systolic_bp": 126,
+  "diastolic_bp": 82,
+  "blood_glucose": 88,
+  "mood": 3,
+  "stress": 3,
+  "fatigue_score": 4,
+  "food_water_intake": {
+    "meals": "normal",
+    "water_l_24h": 1.8
+  },
+  "reaction_time_ms": 312
+}

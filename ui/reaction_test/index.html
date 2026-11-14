@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Reaction time test</title>
+<style>
+  /* Colours arrive from Python (ui_config) in the render args; these are fallbacks only. */
+  :root { --bg: #0b1017; --panel: #0f141b; --line: #1f2a38; --ink: #e6edf3;
+          --muted: #8b949e; --green: #40d317; --yellow: #ffd60a; --red: #ff3b30; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: transparent; color: var(--ink);
+         font: 14px/1.4 "Source Sans Pro", "Segoe UI", system-ui, sans-serif; }
+  #wrap { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+          background: var(--bg); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .h { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #pad { margin-top: 10px; height: 170px; border-radius: 10px; background: var(--panel);
+         border: 2px solid var(--line); display: flex; align-items: center;
+         justify-content: center; flex-direction: column; cursor: pointer; user-select: none;
+         outline: none; }
+  #pad:focus-visible { border-color: var(--green); }
+  #big { font: 700 44px/1 Menlo, Consolas, monospace; }
+  #hint { color: var(--muted); margin-top: 6px; font-size: 13px; }
+  #pad.go #big { color: var(--yellow); }
+  #pad.early { border-color: var(--red); }
+  button { background: var(--green); color: var(--bg); border: 0; border-radius: 8px;
+           padding: 8px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; flex: none; }
+  #note { flex: 1; min-width: 0; }
+  button:disabled { opacity: .4; cursor: default; }
+  #stats { color: var(--muted); font-size: 13px; }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; }
+  .bar > div { height: 4px; width: 0; background: var(--green); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="wrap" data-testid="reaction-test" data-state="ready">
+  <div class="row">
+    <div class="h">Reaction time test (PVT-B style)</div>
+    <div id="stats">not started</div>
+  </div>
+  <div id="pad" tabindex="0" role="button" aria-label="Reaction pad">
+    <div id="big">Ready</div>
+    <div id="hint">Press Start. When the counter appears, click here or press space.</div>
+  </div>
+  <div class="bar"><div id="progress"></div></div>
+  <div class="row" style="margin-top:10px">
+    <div id="note" style="color:var(--muted);font-size:12px"></div>
+    <button id="start">Start</button>
+  </div>
+</div>
+<script>
+/* Minimal Streamlit component protocol (no streamlit-component-lib, no build step). */
+function send(type, extra) {
+  window.parent.postMessage(Object.assign({isStreamlitMessage: true, type: type}, extra), "*");
+}
+function setHeight() { send("streamlit:setFrameHeight", {height: document.body.scrollHeight + 4}); }
+// the frame follows its content (stats or the note wrap onto a second line on narrow screens)
+new ResizeObserver(setHeight).observe(document.body);
+
+let args = {duration_s: 60, isi_min_s: 1, isi_max_s: 4, lapse_ms: 355, plausible_ms: [100, 2000]};
+const wrap = document.getElementById("wrap"), pad = document.getElementById("pad"),
+      big = document.getElementById("big"), hint = document.getElementById("hint"),
+      stats = document.getElementById("stats"), startBtn = document.getElementById("start"),
+      progress = document.getElementById("progress"), note = document.getElementById("note");
+
+window.addEventListener("message", (ev) => {
+  const d = ev.data || {};
+  if (d.type !== "streamlit:render") return;
+  args = Object.assign(args, d.args || {});
+  const p = args.palette || {}, s = args.surface || {};
+  const root = document.documentElement.style;
+  [["--bg", s.panel], ["--panel", s.panel_2], ["--line", s.line], ["--ink", s.ink],
+   ["--muted", s.muted], ["--green", p.green], ["--yellow", p.yellow], ["--red", p.red]]
+    .forEach(([k, v]) => { if (v) root.setProperty(k, v); });
+  note.textContent = Math.round(args.duration_s / 60 * 10) / 10 + " min, random wait "
+    + args.isi_min_s + "-" + args.isi_max_s + " s; a response ≥ " + args.lapse_ms
+    + " ms counts as a lapse.";
+  setHeight();
+});
+
+let running = false, waiting = false, gap = false, shownAt = 0, timer = null, tick = null,
+    endAt = 0, t0 = 0;
+let rts = [], falseStarts = 0, misses = 0, missTimer = null;
+
+function summary() {
+  const [lo, hi] = args.plausible_ms;
+  const ok = rts.filter(r => r >= lo && r <= hi);
+  const mean = ok.length ? Math.round(ok.reduce((a, b) => a + b, 0) / ok.length) : null;
+  const lapses = ok.filter(r => r >= args.lapse_ms).length + misses;   // a miss is a lapse
+  return {mean, lapses, n: rts.length};
+}
+function showStats() {
+  const s = summary();
+  stats.textContent = s.n + " responses" + (s.mean ? ", mean " + s.mean + " ms" : "")
+    + ", lapses " + s.lapses + (misses ? " (missed " + misses + ")" : "")
+    + ", false starts " + falseStarts;
+}
+function schedule() {
+  waiting = true; gap = false; pad.classList.remove("go");
+  big.textContent = "· · ·"; hint.textContent = "Wait for the counter...";
+  const wait = (args.isi_min_s + Math.random() * (args.isi_max_s - args.isi_min_s)) * 1000;
+  timer = setTimeout(() => {
+    if (!running) return;
+    waiting = false; shownAt = performance.now(); pad.classList.add("go");
+    hint.textContent = "Now: click or press space";
+    tick = setInterval(() => { big.textContent = Math.round(performance.now() - shownAt); }, 16);
+    // no response within the plausible window (quality gate upper bound): a miss, next trial
+    missTimer = setTimeout(() => {
+      if (!running || gap) return;
+      clearInterval(tick); misses++; gap = true; pad.classList.remove("go");
+      big.textContent = "Missed"; hint.textContent = "";
+      showStats();
+      if (performance.now() >= endAt) { finish(); return; }
+      setTimeout(() => { if (running) schedule(); }, 500);
+    }, args.plausible_ms[1]);
+  }, wait);
+}
+function respond() {
+  if (!running || gap) return;                    // between trials: clicks are ignored
+  if (waiting) {                                  // pressed before the counter appeared
+    falseStarts++; pad.classList.add("early"); hint.textContent = "Too early";
+    setTimeout(() => pad.classList.remove("early"), 300);
+    clearTimeout(timer); showStats(); schedule(); return;
+  }
+  const rt = performance.now() - shownAt;
+  clearInterval(tick); clearTimeout(missTimer); rts.push(Math.round(rt));
+  gap = true; pad.classList.remove("go");         // one response per stimulus
+  big.textContent = Math.round(rt) + " ms"; hint.textContent = "";
+  showStats();
+  if (performance.now() >= endAt) { finish(); return; }
+  setTimeout(() => { if (running) schedule(); }, 500);
+}
+function finish() {
+  running = false; clearTimeout(timer); clearInterval(tick); clearTimeout(missTimer);
+  progress.style.width = "100%"; wrap.dataset.state = "done";
+  const s = summary();
+  big.textContent = s.mean ? s.mean + " ms" : "--";
+  hint.textContent = "Mean reaction time. Written to the check-in.";
+  startBtn.disabled = false; startBtn.textContent = "Run again";
+  send("streamlit:setComponentValue",
+       {value: {rts: rts, false_starts: falseStarts, misses: misses, duration_s: args.duration_s},
+        dataType: "json"});
+  const m = document.createElement("div");
+  m.setAttribute("data-testid", "reaction-done"); m.style.display = "none"; wrap.appendChild(m);
+}
+startBtn.addEventListener("click", () => {
+  rts = []; falseStarts = 0; misses = 0; running = true; wrap.dataset.state = "running";
+  startBtn.disabled = true; t0 = performance.now(); endAt = t0 + args.duration_s * 1000;
+  showStats(); pad.focus(); schedule();
+  (function bar() {
+    if (!running) return;
+    progress.style.width = Math.min(100, 100 * (performance.now() - t0) / (args.duration_s * 1000)) + "%";
+    // the test ends at the time limit whatever the state; a stimulus still on screen then
+    // is not answered and not counted (as in the PVT-B)
+    if (performance.now() >= endAt) { finish(); return; }
+    requestAnimationFrame(bar);
+  })();
+});
+pad.addEventListener("mousedown", respond);
+pad.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); if (!e.repeat) respond(); } });
+
+send("streamlit:componentReady", {apiVersion: 1});
+setHeight();
+</script>
+</body>
+</html>

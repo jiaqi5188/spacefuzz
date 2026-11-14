@@ -1,0 +1,195 @@
+{
+  "source": "WESAD chest ECG, R-peak detection, 60 s windows (physio_replay.py)",
+  "subjects": {
+    "S2": {
+      "amusement": {
+        "hr_mean": 66.41,
+        "hr_std": 1.83,
+        "rmssd_mean": 72.63,
+        "rmssd_std": 22.92,
+        "hr_dev_sd": 1.833,
+        "rmssd_dev_cv": 0.3155,
+        "minutes": 6
+      },
+      "baseline": {
+        "hr_mean": 72.68,
+        "hr_std": 3.0,
+        "rmssd_mean": 54.89,
+        "rmssd_std": 6.55,
+        "hr_dev_sd": 3.001,
+        "rmssd_dev_cv": 0.1194,
+        "minutes": 19
+      },
+      "meditation": {
+        "hr_mean": 67.1,
+        "hr_std": 2.69,
+        "rmssd_mean": 62.26,
+        "rmssd_std": 6.67,
+        "hr_dev_sd": 2.565,
+        "rmssd_dev_cv": 0.1056,
+        "minutes": 12
+      },
+      "stress": {
+        "hr_mean": 76.93,
+        "hr_std": 3.57,
+        "rmssd_mean": 37.78,
+        "rmssd_std": 5.48,
+        "hr_dev_sd": 3.571,
+        "rmssd_dev_cv": 0.1451,
+        "minutes": 10
+      }
+    },
+    "S3": {
+      "amusement": {
+        "hr_mean": 55.14,
+        "hr_std": 2.64,
+        "rmssd_mean": 101.96,
+        "rmssd_std": 17.62,
+        "hr_dev_sd": 2.641,
+        "rmssd_dev_cv": 0.1728,
+        "minutes": 6
+      },
+      "baseline": {
+        "hr_mean": 54.19,
+        "hr_std": 2.11,
+        "rmssd_mean": 101.36,
+        "rmssd_std": 9.17,
+        "hr_dev_sd": 2.109,
+        "rmssd_dev_cv": 0.0905,
+        "minutes": 19
+      },
+      "meditation": {
+        "hr_mean": 50.46,
+        "hr_std": 2.51,
+        "rmssd_mean": 108.77,
+        "rmssd_std": 18.46,
+        "hr_dev_sd": 2.266,
+        "rmssd_dev_cv": 0.1698,
+        "minutes": 12
+      },
+      "stress": {
+        "hr_mean": 88.33,
+        "hr_std": 12.96,
+        "rmssd_mean": 41.92,
+        "rmssd_std": 15.82,
+        "hr_dev_sd": 12.961,
+        "rmssd_dev_cv": 0.3774,
+        "minutes": 10
+      }
+    },
+    "S4": {
+      "amusement": {
+        "hr_mean": 62.06,
+        "hr_std": 2.9,
+        "rmssd_mean": 68.08,
+        "rmssd_std": 16.66,
+        "hr_dev_sd": 2.901,
+        "rmssd_dev_cv": 0.2447,
+        "minutes": 6
+      },
+      "baseline": {
+        "hr_mean": 60.77,
+        "hr_std": 3.87,
+        "rmssd_mean": 80.66,
+        "rmssd_std": 12.35,
+        "hr_dev_sd": 3.867,
+        "rmssd_dev_cv": 0.1531,
+        "minutes": 19
+      },
+      "meditation": {
+        "hr_mean": 62.29,
+        "hr_std": 2.59,
+        "rmssd_mean": 73.05,
+        "rmssd_std": 14.08,
+        "hr_dev_sd": 2.453,
+        "rmssd_dev_cv": 0.1693,
+        "minutes": 12
+      },
+      "stress": {
+        "hr_mean": 79.5,
+        "hr_std": 5.11,
+        "rmssd_mean": 41.06,
+        "rmssd_std": 4.07,
+        "hr_dev_sd": 5.107,
+        "rmssd_dev_cv": 0.0991,
+        "minutes": 10
+      }
+    },
+    "S5": {
+      "amusement": {
+        "hr_mean": 66.32,
+        "hr_std": 1.49,
+        "rmssd_mean": 26.19,
+        "rmssd_std": 5.09,
+        "hr_dev_sd": 1.486,
+        "rmssd_dev_cv": 0.1943,
+        "minutes": 6
+      },
+      "baseline": {
+        "hr_mean": 62.75,
+        "hr_std": 2.05,
+        "rmssd_mean": 30.06,
+        "rmssd_std": 4.6,
+        "hr_dev_sd": 2.049,
+        "rmssd_dev_cv": 0.1529,
+        "minutes": 19
+      },
+      "meditation": {
+        "hr_mean": 63.99,
+        "hr_std": 2.1,
+        "rmssd_mean": 29.91,
+        "rmssd_std": 5.24,
+        "hr_dev_sd": 2.073,
+        "rmssd_dev_cv": 0.1604,
+        "minutes": 12
+      },
+      "stress": {
+        "hr_mean": 89.78,
+        "hr_std": 4.53,
+        "rmssd_mean": 15.94,
+        "rmssd_std": 2.2,
+        "hr_dev_sd": 4.533,
+        "rmssd_dev_cv": 0.1383,
+        "minutes": 10
+      }
+    }
+  },
+  "pooled": {
+    "amusement": {
+      "hr_mean": 62.48,
+      "hr_std": 5.15,
+      "rmssd_mean": 67.22,
+      "rmssd_std": 31.77,
+      "hr_dev_sd": 2.135,
+      "rmssd_dev_cv": 0.2222,
+      "minutes": 24
+    },
+    "baseline": {
+      "hr_mean": 62.6,
+      "hr_std": 7.23,
+      "rmssd_mean": 66.74,
+      "rmssd_std": 28.3,
+      "hr_dev_sd": 2.797,
+      "rmssd_dev_cv": 0.1289,
+      "minutes": 76
+    },
+    "meditation": {
+      "hr_mean": 60.96,
+      "hr_std": 6.81,
+      "rmssd_mean": 68.49,
+      "rmssd_std": 30.86,
+      "hr_dev_sd": 2.271,
+      "rmssd_dev_cv": 0.1486,
+      "minutes": 48
+    },
+    "stress": {
+      "hr_mean": 83.64,
+      "hr_std": 9.15,
+      "rmssd_mean": 34.17,
+      "rmssd_std": 13.63,
+      "hr_dev_sd": 7.243,
+      "rmssd_dev_cv": 0.2107,
+      "minutes": 40
+    }
+  }
+}

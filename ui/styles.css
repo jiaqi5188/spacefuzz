@@ -1,0 +1,162 @@
+/* SpaceFuzz global palette and Streamlit chrome (plan 4.2 / 4.3).
+ *
+ * One palette: black background, neon green, highlight yellow, alert red, grey, plus the
+ * panel / line / text colours. The status colours are also in ui_config.COLOR (Plotly and
+ * the iframes) and .streamlit/config.toml (Streamlit theme); tests/test_styles.py keeps
+ * them identical. Loaded by app.py and by every page (ui/theme.page_style); the iframes (body
+ * map, fuzz log, plan board, HUD) inject the same :root block via ui/theme.py. No web fonts or remote assets (offline).
+ *
+ * Status is never colour alone: green vs yellow is only dE 6.1 for protanopia, so the
+ * indicator dots also change shape (green circle, yellow diamond, red square, grey ring).
+ */
+
+:root {
+  /* surfaces */
+  --sf-bg: #05070a;        /* page */
+  --sf-panel: #0b1017;     /* panels, charts */
+  --sf-panel-2: #0f141b;   /* raised: top bar, popups, controls */
+  --sf-line: #1f2a38;      /* panel borders */
+  --sf-line-strong: #2a3646; /* figure outlines */
+  --sf-grid: #1a2330;      /* rules, chart grid */
+  /* text */
+  --sf-ink: #e6edf3;
+  --sf-muted: #8b949e;
+  --sf-info: #8ecbff;      /* fuzz log: new lowest-fitness lines */
+  --sf-log: #9fe6a0;       /* fuzz log: body text */
+  /* status (same values as ui_config.COLOR) */
+  --sf-green: #40d317;
+  --sf-yellow: #ffd60a;
+  --sf-red: #ff3b30;
+  --sf-grey: #8b949e;
+  /* plan-board task blocks */
+  --sf-block-task: #2a3646;
+  --sf-block-rest: #26303d;
+  --sf-block-exercise: #2c5f5a;
+  --sf-block-eva: #2f5f8f;
+  --sf-block-focus: #5b4a86;
+  /* derived */
+  --sf-green-glow: color-mix(in srgb, var(--sf-green) 35%, transparent);
+  --sf-radius: 10px;
+}
+
+/* ---------------------------------------------------------------- page */
+
+.stApp, [data-testid="stAppViewContainer"] { background: var(--sf-bg); color: var(--sf-ink); }
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stSidebar"] { background: var(--sf-panel); border-right: 1px solid var(--sf-line); }
+::selection { background: var(--sf-green-glow); color: var(--sf-ink); }
+* { scrollbar-width: thin; scrollbar-color: var(--sf-line) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--sf-line); border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--sf-green); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- controls */
+
+/* Run Forecast: the one primary action */
+[data-testid^="stBaseButton-primary"] {
+  background: var(--sf-green); color: var(--sf-bg); border: 1px solid var(--sf-green);
+  border-radius: 8px; font-weight: 700; letter-spacing: .02em;
+  box-shadow: 0 0 0 0 var(--sf-green-glow); transition: box-shadow .2s, transform .1s;
+}
+[data-testid^="stBaseButton-primary"] p { color: var(--sf-bg); font-weight: 700; }
+[data-testid^="stBaseButton-primary"]:hover:not(:disabled) {
+  background: var(--sf-green); color: var(--sf-bg); border-color: var(--sf-green);
+  box-shadow: 0 0 14px 2px var(--sf-green-glow);
+}
+[data-testid^="stBaseButton-primary"]:active { transform: translateY(1px); }
+/* the main actions are larger; while one runs it stays visible but locked */
+.st-key-run_forecast button, .st-key-run_midday button { min-height:44px; min-width:230px; padding:0 22px; }
+.st-key-run_forecast button p, .st-key-run_midday button p { font-size:15px; }
+.st-key-save_checkin { position:sticky; bottom:12px; z-index:5; }
+.st-key-save_checkin button { min-height:44px; min-width:200px; box-shadow:0 6px 24px rgba(0, 0, 0, .6); }
+[data-testid^="stBaseButton-primary"]:disabled, [data-testid^="stBaseButton-primary"]:disabled:hover {
+  background: color-mix(in srgb, var(--sf-green) 22%, var(--sf-panel)); opacity:1; box-shadow:none;
+  border-color: color-mix(in srgb, var(--sf-green) 55%, transparent); cursor: progress; }
+[data-testid^="stBaseButton-primary"]:disabled p, [data-testid^="stBaseButton-primary"]:disabled span {
+  color: var(--sf-ink); }
+
+/* HUD toggle */
+[data-testid="stCheckbox"] label { color: var(--sf-ink); }
+
+/* segmented controls (trend indicator, fan field) */
+[data-testid="stButtonGroup"] button {
+  background: var(--sf-panel-2); color: var(--sf-muted); border-color: var(--sf-line);
+}
+.st-key-trend_field button { padding:0 9px; min-height:34px; }
+.st-key-trend_field button p { font-size:13px; white-space:nowrap; }
+.st-key-trend_field [data-testid="stButtonGroup"] > div { flex-wrap:nowrap; }
+[data-testid="stButtonGroup"] button[aria-checked="true"],
+[data-testid="stButtonGroup"] button[aria-pressed="true"] {
+  color: var(--sf-green); border-color: var(--sf-green); background: var(--sf-panel);
+}
+
+
+/* captions and widget labels */
+[data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] { color: var(--sf-muted); }
+
+/* charts and iframes sit on panels */
+[data-testid="stPlotlyChart"] { border: 1px solid var(--sf-line); border-radius: var(--sf-radius);
+  overflow: hidden; background: var(--sf-panel); }
+[data-testid="stIFrame"] { border: 0; border-radius: var(--sf-radius); }
+
+/* ---------------------------------------------------------------- shared page classes */
+
+/* Designed for a 13-inch laptop first (1440x800 in the browser); wider screens only add room. */
+.block-container { padding: 8px 20px 16px; max-width: none; }
+[data-testid="stVerticalBlock"] { gap: .6rem; }
+/* zero-height helpers (width probe, hidden test markers) stay out of the flow: no extra gap */
+.st-key-viewport,
+[data-testid="stElementContainer"]:has(> [data-testid="stHtml"]):not(:has(> [data-testid="stHtml"] > :not([style="display:none"], :empty, style))) {
+  position:absolute; width:0; height:0; overflow:hidden; }
+/* the menu (sidebar) button, made easy to find: it opens every screen of the app */
+[data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button {
+  width:auto; padding:0 10px 0 6px; gap:4px;
+  border:1px solid color-mix(in srgb, var(--sf-green) 55%, transparent); border-radius:6px;
+  color:var(--sf-green); background:var(--sf-panel); }
+[data-testid="stExpandSidebarButton"] { transform:translate(14px, 2px); }   /* inside the top bar */
+[data-testid="stExpandSidebarButton"]::after, [data-testid="stSidebarCollapseButton"] button::after {
+  font:700 12px/1 system-ui, sans-serif; letter-spacing:.12em; }
+[data-testid="stExpandSidebarButton"]::after { content:"MENU"; }
+[data-testid="stSidebarCollapseButton"] button::after { content:"CLOSE"; }
+/* Streamlit shows the close button only on hover: keep it visible */
+[data-testid="stSidebarCollapseButton"], [data-testid="stSidebarCollapseButton"] * {
+  visibility:visible !important; opacity:1 !important; }
+[data-testid="stSidebarCollapseButton"] span { color:var(--sf-green) !important; }
+/* the top bar leaves room on its left for the menu button (Streamlit's sidebar toggle) */
+.sf-topbar { background:var(--sf-panel-2); border:1px solid var(--sf-line); border-radius:10px;
+  padding:9px 18px 9px 126px; font-size:18px; font-weight:600; display:flex; gap:22px;
+  flex-wrap:nowrap; align-items:center; white-space:nowrap; overflow:hidden; height:48px; }
+.sf-topbar .sub { font-size:13px; color:var(--sf-muted); font-weight:400; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; }
+.sf-panel { background:var(--sf-panel); border:1px solid var(--sf-line); border-radius:10px;
+  padding:12px 16px; margin-bottom:10px; }
+.sf-h { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--sf-muted);
+  margin-bottom:6px; }
+.sf-tag { font-size:11px; color:var(--sf-yellow); font-weight:400; border-radius:4px;
+  border:1px solid color-mix(in srgb, var(--sf-yellow) 33%, transparent);
+  padding:0 4px; margin-left:6px; }
+
+/* ---------------------------------------------------------------- status shapes */
+
+.sf-dot { transition: background .3s, border-radius .3s, transform .3s; }
+[data-status="green"] .sf-dot { border-radius: 50%; }
+[data-status="yellow"] .sf-dot { border-radius: 1px; transform: rotate(45deg) scale(.85); }
+[data-status="red"] .sf-dot { border-radius: 1px; }
+[data-status="grey"] .sf-dot { background: transparent !important;
+  box-shadow: inset 0 0 0 2px var(--sf-grey); border-radius: 50%; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- run status and pending notes */
+
+.sf-status { font-size:12px; color:var(--sf-muted); height:18px; line-height:18px;
+  margin:-4px 0 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-pending { font-size:13px; color:var(--sf-muted); }
+.sf-chart-slot { min-height:400px; display:flex; align-items:center; justify-content:center;
+  border:1px dashed var(--sf-line); border-radius:var(--sf-radius); }
+.sf-chart-slot.stacked { min-height:810px; }
+/* the one thing to press first: a slow green halo until the first forecast */
+@keyframes sf-call { 0%,100% { box-shadow:0 0 0 0 var(--sf-green-glow); }
+                     50% { box-shadow:0 0 18px 4px var(--sf-green-glow); } }

@@ -1,0 +1,57 @@
+# Clinical timepoint data -> clinical standard (long format):
+#   source, subject, specimen, timepoint, phase, day_offset, date, analyte, value, unit,
+#   range_min, range_max
+# layout long: one row per measurement (columns named under `columns`).
+# layout wide: one row per sample; `sample.pattern` parses subject / specimen /
+#   timepoint from the sample id, `values.pattern` picks value columns and names
+#   the analyte (and optionally the unit). Ranges use {analyte} / {unit} placeholders.
+# Timepoints "L-92" / "R+1" are days relative to launch / return; `anchors` turns
+# them into calendar dates (Inspiration4: launch 2021-09-16, return 2021-09-18).
+standard: clinical
+timepoints:
+  anchors: {L: "2021-09-16", R: "2021-09-18"}
+sources:
+  inspiration4_cmp:        # OSD-575, long format
+    file: data/raw/inspiration4/LSDS-8_Comprehensive_Metabolic_Panel_CMP.upload_SUBMITTED.csv
+    layout: long
+    columns:
+      subject: SUBJECT_ID
+      timepoint: timepoint
+      analyte: ANALYTE
+      value: VALUE
+      unit: UNITS
+      range_min: RANGE_MIN
+      range_max: RANGE_MAX
+    specimen: serum
+
+  inspiration4_cbc:        # OSD-569, wide format
+    file: data/raw/inspiration4/LSDS-7_Complete_Blood_Count_CBC_TRANSFORMED.csv
+    layout: wide
+    sample:
+      column: Sample Name
+      pattern: '^(?P<subject>C\d{3})_(?P<specimen>[^_]+)_(?P<timepoint>[LR][+-]\d+)'
+    values:
+      pattern: '^(?P<analyte>.+)_value_(?P<unit>.+)$'
+      range_min: '{analyte}_range_min_{unit}'
+      range_max: '{analyte}_range_max_{unit}'
+    unit_overrides: {hemoglobin: g/dL}   # labelled "percent" in the file, values are g/dL
+    unit_names:
+      cells_per_microliter: cells/uL
+      thousand_per_microliter: 10^3/uL
+      million_per_microliter: 10^6/uL
+      grams_per_deciliter: g/dL
+      picogram: pg
+      femtoliter: fL
+      percent: "%"
+
+  inspiration4_immune:     # OSD-656 urine immune panel, wide format, relative units
+    file: data/raw/inspiration4/LSDS-64_Multiplex_urine.immune.AlamarPanel_TRANSFORMED.csv
+    layout: wide
+    read:
+      rename: {"Unnamed: 2": activin_a_percent_normalized_value}  # header missing in file
+    sample:
+      column: Sample Name
+      pattern: '^(?P<subject>C\d{3})_(?P<specimen>[^_]+)_(?P<timepoint>[LR][+-]\d+)'
+    values:
+      pattern: '^(?P<analyte>.+)_concentration_npq$'
+      unit: NPQ

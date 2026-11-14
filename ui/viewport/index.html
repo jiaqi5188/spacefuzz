@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0">
+<script>
+/* Viewport width probe (no streamlit-component-lib, no build step): tells Python once whether
+   the browser window is at least min_px wide, and again only when that answer changes, so a
+   resize inside one layout never reruns the page. */
+function send(type, extra) {
+  window.parent.postMessage(Object.assign({isStreamlitMessage: true, type: type}, extra), "*");
+}
+let minPx = 2400, last = null, timer = null;
+function width() {
+  try { return window.top.innerWidth; } catch (e) { return window.screen.width; }
+}
+function report() {
+  const wide = width() >= minPx;
+  if (wide === last) return;
+  last = wide;
+  send("streamlit:setComponentValue", {value: wide, dataType: "json"});
+}
+function onResize() { clearTimeout(timer); timer = setTimeout(report, 300); }
+window.addEventListener("message", (e) => {
+  const d = e.data || {};
+  if (d.type !== "streamlit:render") return;
+  minPx = (d.args && d.args.min_px) || minPx;
+  send("streamlit:setFrameHeight", {height: 0});
+  report();
+});
+// listen on the top window (the frame itself does not resize); stop when this frame goes
+// away, so a page switch leaves no listener posting into a detached frame
+let target = window;
+try { target = window.top; target.addEventListener("resize", onResize); }
+catch (e) { target = window; target.addEventListener("resize", onResize); }
+window.addEventListener("pagehide", () => target.removeEventListener("resize", onResize));
+send("streamlit:componentReady", {apiVersion: 1});
+</script>
+</body></html>

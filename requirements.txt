@@ -1,0 +1,28 @@
+# Python 3.11. Install: python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# then: .venv/bin/playwright install chromium   (video recording, title cards)
+# Also needs ffmpeg on PATH (video/build.py).
+
+# data
+pandas==3.1.1
+numpy==2.4.6
+scipy==1.17.1
+xarray==2026.9.0
+netCDF4==1.7.5.1.post1  # xarray backend for the GOES .nc files
+pyarrow==26.0.1          # used by streamlit
+PyYAML==6.0.3          # data/mappings/*.yaml
+openpyxl==3.1.5        # XLSX in generic_reader / inspect_data
+matplotlib==3.11.2       # notebooks/analysis.ipynb figures
+
+# app and video
+streamlit==1.67.0
+plotly==7.1.0
+playwright==1.64.1
+
+# tests and tooling
+hypothesis==6.170.15
+pytest==9.2.0
+jupyter==1.1.1
+
+# future LLM layer (not imported yet; the key would come from .env)
+python-dotenv==1.2.4
+openai==3.46.0

@@ -1,0 +1,56 @@
+{
+  "date": "Mission Day 147",
+  "environment": "mars_base",
+  "check_window": "morning",
+  "comm_delay_min": 20,
+  "tasks": [
+    {
+      "start": "07:00",
+      "duration_h": 1.0,
+      "type": "exercise_ARED",
+      "kind": "task"
+    },
+    {
+      "start": "08:15",
+      "duration_h": 0.5,
+      "type": "meal",
+      "kind": "task"
+    },
+    {
+      "start": "08:45",
+      "duration_h": 0.75,
+      "type": "comm_session",
+      "kind": "task"
+    },
+    {
+      "start": "10:00",
+      "duration_h": 6.5,
+      "type": "EVA",
+      "kind": "task"
+    },
+    {
+      "start": "16:45",
+      "duration_h": 0.5,
+      "type": "meal",
+      "kind": "task"
+    },
+    {
+      "start": "18:00",
+      "duration_h": 2.0,
+      "type": "science_experiment",
+      "kind": "task"
+    },
+    {
+      "start": "20:30",
+      "duration_h": 1.5,
+      "type": "personal_time",
+      "kind": "task"
+    },
+    {
+      "start": "23:00",
+      "duration_h": 6.0,
+      "type": "sleep",
+      "kind": "task"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "plan": "radiation_spe",
+  "source": "synthetic_example",
+  "check_window": "morning",
+  "check_time": "06:30",
+  "wake_time": "06:00",
+  "sleep_last_night_h": 7.2,
+  "sleep_last_3_nights_h": [
+    7.3,
+    7.1,
+    7.2
+  ],
+  "sleep_efficiency_pct": 88,
+  "systolic_bp": 120,
+  "diastolic_bp": 78,
+  "blood_glucose": 94,
+  "mood": 3,
+  "stress": 3,
+  "fatigue_score": 2,
+  "food_water_intake": {
+    "meals": "normal",
+    "water_l_24h": 2.2
+  },
+  "reaction_time_ms": 260
+}

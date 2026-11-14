@@ -1,0 +1,18 @@
+# SpaceFuzz dark theme (plan 4.3): black background, neon green, highlight yellow,
+# alert red, grey.
+[theme]
+base = "dark"
+primaryColor = "#40d317"
+backgroundColor = "#05070a"
+secondaryBackgroundColor = "#0f141b"
+textColor = "#e6edf3"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false   # no telemetry: the app must run with the network off
+
+[server]
+headless = true

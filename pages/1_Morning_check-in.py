@@ -1,0 +1,183 @@
+"""Morning check-in (plan 4.1 annex 1): self-report with "how to measure" + reaction test.
+
+Pre-filled with the selected scenario's example check-in (synthetic example data). Saving
+runs the data-quality gate and previews the act-now advice; the edited check-in is what the
+dashboard forecasts next (with the local profile, since the cached full-profile results
+belong to the example check-in). The reaction test writes reaction_time_ms by itself.
+"""
+
+import streamlit as st
+
+from spacefuzz.fuzzing import advice
+from spacefuzz.core import quality_gate as qg
+from spacefuzz.core import state
+import ui_config
+from ui import checkin_store as cs
+from ui import assist, nav, reaction, theme
+from ui.common import esc
+
+SAMN_PERELLI = {1: "1 fully alert, wide awake", 2: "2 very lively, responsive",
+                3: "3 okay, somewhat fresh", 4: "4 a little tired, less than fresh",
+                5: "5 moderately tired, let down", 6: "6 extremely tired, hard to concentrate",
+                7: "7 completely exhausted"}
+MEALS = ("normal", "reduced", "skipped a meal")
+
+# How to measure (example procedure shown to the crew; illustrative, not a clinical protocol).
+HOW = {
+    "bp": "Seated, back supported, after 5 min rest; cuff on the bare upper arm at heart "
+          "level; take 2 readings 1 min apart and enter the average.",
+    "glucose": "Fingerstick glucometer before breakfast.",
+    "sleep": "From the wristband sleep record; without one, your own estimate (less precise).",
+    "efficiency": "Time asleep / time in bed, from the wristband.",
+    "mood": "Your own rating right now: mood 1 very low to 5 very good; stress 1 none to "
+            "5 very high.",
+    "fatigue": "Samn-Perelli 7-point fatigue scale: pick the line that fits you now.",
+    "food": "Meals in the last 24 h and water from your drink log. Recorded; not used by the "
+            "forecast yet.",
+}
+
+
+
+def gate_html(ci: state.CheckIn) -> str:
+    gate = qg.check(checkin=ci)
+    color = {"ok": "green", "degraded": "yellow", "untrusted": "red"}[gate.status]
+    issues = "".join(f"<div>• {esc(i.field)}: {esc(i.detail)}</div>" for i in gate.issues)
+    items = advice.act_now(ci, state.make_baseline(), gate=gate)
+    act = "".join(f"<div>• {esc(a.text)}</div>" for a in items) or \
+        "<div>Nothing to act on now.</div>"
+    msg = (f'<div style="margin-top:6px">{esc(gate.message)}</div>'
+           if not gate.can_forecast else "")
+    return (f'<div class="sf-panel" data-testid="checkin-gate"><div class="sf-h">Data quality'
+            f'</div><div style="color:var(--sf-{color});font-weight:700">Data quality: '
+            f'{gate.status}</div>{issues}{msg}<div class="sf-h" style="margin-top:10px">'
+            f'Act now (preview)</div>{act}</div>')
+
+
+def ai_hint(ci: state.CheckIn) -> None:
+    """Optional, with an OPENAI_API_KEY only: a plain-language hint for a rejected check-in
+    (ui/assist.py). The gate's decision above stays as it is."""
+    gate = qg.check(checkin=ci)
+    if gate.can_forecast or not assist.available():
+        return
+    if st.button(assist.BUTTON, key="assist_hint", icon=":material/help:"):
+        with st.spinner("Asking..."):
+            st.session_state["assist_hint_result"] = (gate.message, assist.hint(gate))
+    asked, text = st.session_state.get("assist_hint_result", (None, None))
+    if asked != gate.message:              # an answer for other values is not shown
+        return
+    if text is None:
+        st.caption(assist.UNAVAILABLE)
+    else:
+        st.html(f'<div class="sf-panel" data-testid="assist-hint"><div class="sf-h">'
+                f'{esc(assist.LABEL)}</div><div>{esc(text)}</div></div>')
+
+
+def main() -> None:
+    st.set_page_config(page_title="SpaceFuzz · Morning check-in", layout="wide",
+                       initial_sidebar_state="collapsed")
+    st.html(theme.page_style())
+    name = st.session_state.get("active_scenario", "main_sleep_debt_eva")
+    cur = cs.current(name)
+    st.html(f'<div class="sf-topbar" data-testid="checkin-topbar"><span>Morning check-in'
+            f'</span><span>{esc(ui_config.CREW_MEMBER_NAME)}</span><span class="sub">'
+            f'{esc(ui_config.SCENARIOS.get(name, name))} · pre-filled with this scenario\'s synthetic '
+            f'example values; edit, save, then press Run Forecast on the dashboard</span></div>')
+    nav.link_dashboard(label="Next: Dashboard, press Run Forecast there")
+
+    left, right = st.columns([3, 2], gap="large")
+    with left:
+        with st.form("checkin"):
+            st.markdown("**Blood pressure** <span class='sf-tag'>example data</span>",
+                        unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            sbp = c1.number_input("Systolic (mmHg)", 40.0, 300.0, float(cur["systolic_bp"]), 1.0)
+            dbp = c2.number_input("Diastolic (mmHg)", 20.0, 200.0, float(cur["diastolic_bp"]),
+                                  1.0)
+            st.caption(HOW["bp"])
+            st.markdown("**Blood glucose** <span class='sf-tag'>example data</span>",
+                        unsafe_allow_html=True)
+            glu = st.number_input("Blood glucose (mg/dL)", 1.0, 800.0, float(cur["blood_glucose"]),
+                                  1.0)
+            st.caption(HOW["glucose"])
+            st.markdown("**Sleep**")
+            n3 = list(cur["sleep_last_3_nights_h"])
+            c1, c2, c3 = st.columns(3)
+            s_last = c1.number_input("Sleep last night (h)", 0.0, 24.0,
+                                     float(cur["sleep_last_night_h"]), 0.1)
+            s_prev = c2.number_input("Night before (h)", 0.0, 24.0, float(n3[1]), 0.1)
+            s_prev2 = c3.number_input("Two nights before (h)", 0.0, 24.0, float(n3[0]), 0.1)
+            st.caption(HOW["sleep"])
+            eff = st.number_input("Sleep efficiency (%)", 0.0, 100.0,
+                                  float(cur["sleep_efficiency_pct"]), 1.0)
+            st.caption(HOW["efficiency"])
+            st.markdown("**Mood and stress**")
+            c1, c2 = st.columns(2)
+            mood = c1.slider("Mood (1-5)", 1, 5, int(cur["mood"]))
+            stress = c2.slider("Stress (1-5)", 1, 5, int(cur["stress"]))
+            st.caption(HOW["mood"])
+            st.markdown("**Fatigue**")
+            fat = st.select_slider("Fatigue (Samn-Perelli 1-7)", list(SAMN_PERELLI),
+                                   value=int(cur["fatigue_score"]), format_func=SAMN_PERELLI.get)
+            st.caption(HOW["fatigue"])
+            st.markdown("**Food and water**")
+            food = cur.get("food_water_intake", {})
+            c1, c2 = st.columns(2)
+            meals = c1.selectbox("Meals (24 h)", MEALS,
+                                 index=MEALS.index(food.get("meals", "normal"))
+                                 if food.get("meals", "normal") in MEALS else 0)
+            water = c2.number_input("Water (L, 24 h)", 0.0, 10.0,
+                                    float(food.get("water_l_24h", 2.0)), 0.1)
+            st.caption(HOW["food"])
+            # stays at the bottom of the screen while the form is in view (ui/styles.css)
+            saved = st.form_submit_button("Save check-in", type="primary", key="save_checkin",
+                                          icon=":material/save:")
+        if saved:
+            data = {**cur, "systolic_bp": sbp, "diastolic_bp": dbp, "blood_glucose": glu,
+                    "sleep_last_night_h": s_last,
+                    "sleep_last_3_nights_h": [s_prev2, s_prev, s_last],
+                    "sleep_efficiency_pct": eff, "mood": mood, "stress": stress,
+                    "fatigue_score": fat,
+                    "food_water_intake": {**food, "meals": meals, "water_l_24h": water}}
+            cs.save(name, data)
+
+    with right:
+        st.markdown("**Reaction time**")
+        st.caption("Tap or press space when the counter appears. The mean of your responses "
+                   "is written to the check-in automatically; in a mission this value comes "
+                   "from the dedicated test device, this is its simulation.")
+        label = st.radio("Test length", list(ui_config.REACTION_TEST_S), horizontal=True,
+                         label_visibility="collapsed")
+        result = reaction.run(ui_config.REACTION_TEST_S[label], key=f"reaction_{name}")
+        s = reaction.summarise(result)
+        # Write a new result once; a test without plausible responses (mean None) changes nothing.
+        if s and result != st.session_state.get(f"reaction_used_{name}"):
+            st.session_state[f"reaction_used_{name}"] = result
+            if s["mean_ms"] is not None:
+                cs.save(name, {**cs.current(name), "reaction_time_ms": s["mean_ms"]})
+        if s:
+            st.html(f'<div class="sf-panel" data-testid="reaction-summary">Mean '
+                    f'{s["mean_ms"] if s["mean_ms"] is not None else "--"} ms over '
+                    f'{s["n_valid"]} responses · lapses (&ge; {ui_config.REACTION_LAPSE_MS} ms) '
+                    f'{s["lapses"]} (missed {s["misses"]}) · false starts {s["false_starts"]} · implausible '
+                    f'(outside the quality-gate range) {s["suspicious"]}</div>')
+        else:
+            rt = cs.current(name).get("reaction_time_ms")
+            st.caption(f"Not taken yet: the check-in uses the example value "
+                       f"{rt:.0f} ms." if rt is not None else "Not taken yet.")
+
+        ci = cs.checkin(name)
+        st.html(gate_html(ci))
+        ai_hint(ci)
+        if cs.edited(name):
+            st.caption("This check-in differs from the scenario example: the dashboard will "
+                       "forecast it with the local profile (a few minutes) instead of the "
+                       "cached full-profile results.")
+            if st.button("Reset to example values"):
+                cs.reset(name)
+                # the component keeps returning its last result: mark it as used so the
+                # rerun does not write it back
+                st.session_state[f"reaction_used_{name}"] = result
+                st.rerun()
+
+
+main()

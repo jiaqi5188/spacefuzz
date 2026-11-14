@@ -1,0 +1,40 @@
+# Environment telemetry -> env standard (co2 ppm, temp degC, humidity percent, dose_rate uGy/h).
+# For new data (e.g. the 2026-11-13 official resources): copy one source block,
+# change file / column names / units, then call
+#   generic_reader.read_source("data/mappings/env_telemetry.yaml", "<block name>")
+# and pass the result to env_trace.clip(). No backend change is needed.
+#
+# Supported units: co2 ppm|percent, temp degC|degF|K, humidity percent|fraction,
+# dose_rate uGy/h|mGy/h|mGy/day|uGy/min.
+# time.format: strftime pattern | iso | epoch_s | epoch_ms | seconds | minutes
+standard: env
+sources:
+  eda_rr1:                 # NASA OSDR EDA, Rodent Research-1 (2014)
+    file: data/raw/eda/RR-1_telemetry.csv
+    time: {column: Controller_Time_GMT, format: "%Y-%m-%d %H:%M"}
+    fields:                # *_ISS only; *_Ground is the ground control chamber
+      co2: {column: CO2_ppm_ISS, unit: ppm}
+      temp: {column: Temp_degC_ISS, unit: degC}
+      humidity: {column: RH_percent_ISS, unit: percent}
+
+  eda_rr1_radiation:       # daily dose check only (not a time-resolved source)
+    file: data/raw/eda/RR-1_radiation.csv
+    time: {column: Date, format: "%Y-%m-%d"}
+    fields:
+      dose_rate: {column: Total_Dose_mGy_d, unit: mGy/day}
+    extra:                 # kept as-is, mGy/day
+      gcr_mGy_d: GCR_Dose_mGy_d
+      saa_mGy_d: SAA_Dose_mGy_d
+      total_mGy_d: Total_Dose_mGy_d
+
+  radlab_dostel2:          # ISS Columbus, primary ISS dose source (2017)
+    file: data/raw/radlab/DosTel2_ISS_2017-09-04_to_09-18.csv
+    time: {column: timestamp, format: "%Y-%m-%dT%H:%M:%S"}
+    fields:
+      dose_rate: {column: absorbed_dose_rate, unit: uGy/h}
+
+  radlab_msl_rad:          # Mars surface (Curiosity), used for mars_base plans
+    file: data/raw/radlab/MSL-RAD_Mars_2017-09-04_to_09-18.csv
+    time: {column: timestamp, format: "%Y-%m-%dT%H:%M:%S"}
+    fields:
+      dose_rate: {column: absorbed_dose_rate, unit: uGy/h}

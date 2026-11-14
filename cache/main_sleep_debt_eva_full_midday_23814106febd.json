@@ -1,0 +1,198 @@
+{
+ "plan": "main_sleep_debt_eva",
+ "profile": "full",
+ "seed": 147,
+ "cutoff_min": 840,
+ "cutoff": "14:00",
+ "remeasured": {
+  "sleep_last_night_h": 5.9
+ },
+ "morning_violations": [
+  {
+   "rule": "rule1_sleep_eva",
+   "system": "Cardiovascular",
+   "minute": 660,
+   "clock": "11:00",
+   "text": "EVA started within 12 h of waking after < 6 h sleep"
+  }
+ ],
+ "risk_before": 1.0,
+ "rating_before": "CRITICAL",
+ "time_to_crash_before": 15,
+ "by_rule_before": {
+  "rule1_sleep_eva": 2500,
+  "cardiovascular": 108,
+  "cognitive": 7,
+  "rule4_spe_eva": 1
+ },
+ "changes": [
+  "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)"
+ ],
+ "risk_after": 0.0488,
+ "rating_after": "MEDIUM",
+ "by_rule_after": {
+  "cardiovascular": 115,
+  "cognitive": 6,
+  "rule4_spe_eva": 10
+ },
+ "escalate_to_ground": false,
+ "plan_before": {
+  "date": "Mission Day 147",
+  "environment": "mars_base",
+  "check_window": "morning",
+  "comm_delay_min": 20,
+  "tasks": [
+   {
+    "start": "07:00",
+    "duration_h": 1.0,
+    "type": "exercise_ARED",
+    "kind": "task"
+   },
+   {
+    "start": "08:15",
+    "duration_h": 0.5,
+    "type": "meal",
+    "kind": "task"
+   },
+   {
+    "start": "08:45",
+    "duration_h": 0.75,
+    "type": "comm_session",
+    "kind": "task"
+   },
+   {
+    "start": "10:00",
+    "duration_h": 1.0,
+    "type": "sleep",
+    "kind": "task"
+   },
+   {
+    "start": "11:00",
+    "duration_h": 2.25,
+    "type": "EVA",
+    "kind": "task"
+   },
+   {
+    "start": "13:15",
+    "duration_h": 1.0,
+    "type": "rest",
+    "kind": "task"
+   },
+   {
+    "start": "14:15",
+    "duration_h": 2.25,
+    "type": "EVA",
+    "kind": "task"
+   },
+   {
+    "start": "16:45",
+    "duration_h": 0.5,
+    "type": "meal",
+    "kind": "task"
+   },
+   {
+    "start": "18:00",
+    "duration_h": 2.0,
+    "type": "science_experiment",
+    "kind": "task"
+   },
+   {
+    "start": "20:30",
+    "duration_h": 1.5,
+    "type": "personal_time",
+    "kind": "task"
+   },
+   {
+    "start": "23:00",
+    "duration_h": 6.0,
+    "type": "sleep",
+    "kind": "task"
+   }
+  ]
+ },
+ "plan_after": {
+  "date": "Mission Day 147",
+  "environment": "mars_base",
+  "check_window": "morning",
+  "comm_delay_min": 20,
+  "tasks": [
+   {
+    "start": "07:00",
+    "duration_h": 1.0,
+    "type": "exercise_ARED",
+    "kind": "task"
+   },
+   {
+    "start": "08:15",
+    "duration_h": 0.5,
+    "type": "meal",
+    "kind": "task"
+   },
+   {
+    "start": "08:45",
+    "duration_h": 0.75,
+    "type": "comm_session",
+    "kind": "task"
+   },
+   {
+    "start": "10:00",
+    "duration_h": 1.0,
+    "type": "sleep",
+    "kind": "task"
+   },
+   {
+    "start": "11:00",
+    "duration_h": 2.25,
+    "type": "EVA",
+    "kind": "task"
+   },
+   {
+    "start": "13:15",
+    "duration_h": 1.0,
+    "type": "rest",
+    "kind": "task"
+   },
+   {
+    "start": "16:45",
+    "duration_h": 0.5,
+    "type": "meal",
+    "kind": "task"
+   },
+   {
+    "start": "18:00",
+    "duration_h": 2.25,
+    "type": "EVA",
+    "kind": "task"
+   },
+   {
+    "start": "20:15",
+    "duration_h": 2.0,
+    "type": "science_experiment",
+    "kind": "task"
+   },
+   {
+    "start": "22:15",
+    "duration_h": 1.5,
+    "type": "personal_time",
+    "kind": "task"
+   },
+   {
+    "start": "23:45",
+    "duration_h": 5.25,
+    "type": "sleep",
+    "kind": "task"
+   }
+  ]
+ },
+ "candidates": 38,
+ "selection": [
+  {
+   "changes": [
+    "Start the afternoon EVA at 18:00, 12 h after waking (rule 1)"
+   ],
+   "screen": 0.0488,
+   "confirm": 0.0488,
+   "result": "chosen"
+  }
+ ]
+}

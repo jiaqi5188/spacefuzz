@@ -1,0 +1,25 @@
+{
+  "plan": "safe_day",
+  "source": "synthetic_example",
+  "check_window": "morning",
+  "check_time": "06:30",
+  "wake_time": "06:00",
+  "sleep_last_night_h": 7.8,
+  "sleep_last_3_nights_h": [
+    7.4,
+    7.6,
+    7.8
+  ],
+  "sleep_efficiency_pct": 92,
+  "systolic_bp": 115,
+  "diastolic_bp": 74,
+  "blood_glucose": 92,
+  "mood": 4,
+  "stress": 2,
+  "fatigue_score": 2,
+  "food_water_intake": {
+    "meals": "normal",
+    "water_l_24h": 2.5
+  },
+  "reaction_time_ms": 245
+}

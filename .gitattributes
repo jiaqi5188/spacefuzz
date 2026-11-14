@@ -1,0 +1,6 @@
+# The engine cache key hashes the raw bytes of the Python sources (spacefuzz/fuzzing/engine.py,
+# SOURCES): keep LF line endings on every OS, so a Windows clone still matches the committed
+# cache in cache/ instead of recomputing it.
+*.py text eol=lf
+# Raw data files are kept byte for byte (the MSL-RAD export uses CRLF line endings).
+data/raw/** -text

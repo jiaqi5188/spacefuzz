@@ -1,0 +1,56 @@
+# Python and tooling
+.venv/
+__pycache__/
+.pytest_cache/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Editors and OS
+.vscode/
+.DS_Store
+
+# Secrets: .env holds a real API key; local variants (.env.local ...) are ignored too.
+# .env.example (empty values) stays tracked.
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Raw data stays local (WESAD alone is 3.8 GB and may not be redistributed), except the
+# two small public files the app needs to build the environment trace on a fresh clone:
+# ISS EDA RR-1 cabin telemetry (NASA OSDR) and MSL-RAD Mars surface dose (NASA PDS).
+data/raw/*
+!data/raw/eda/
+data/raw/eda/*
+!data/raw/eda/RR-1_telemetry.csv
+!data/raw/radlab/
+data/raw/radlab/*
+!data/raw/radlab/MSL-RAD_Mars_2017-09-04_to_09-18.csv
+
+# WESAD (academic, non-commercial use; cite Schmidt et al. 2018): only the fitted summary
+# parameters are committed; the per-subject, per-minute series stays local (re-running the
+# analysis needs WESAD downloaded first).
+data/processed/wesad_hr_hrv.csv
+# The raw-data inspection report quotes rows and statistics of every raw file, WESAD included.
+data/inspect_report.md
+
+# Engine results: the full-profile cache is committed so a fresh clone shows the demo
+# results at once, offline. Local-profile runs, and runs on a clone without the WESAD series
+# (file names carry "wesad_params"), stay local. Before a commit remove stale full-profile
+# files with: python scripts/prune_cache.py --delete   (add --all to clear local runs too)
+cache/*
+!cache/*_full_*.json
+cache/*_wesad_params_*.json
+
+*.log
+
+# Video output (video/record.py cuts the shots into video/clips/)
+video/*.srt
+video/*.mp3
+video/*.mp4
+video/build/
+video/clips/
+
+# Working documents kept local (docs/ also covers docs/screenshots/)
+docs/
+CLAUDE.md

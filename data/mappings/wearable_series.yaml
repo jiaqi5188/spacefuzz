@@ -1,0 +1,21 @@
+# Wearable time series -> wearable standard:
+#   subject, condition, segment_id, minute (since segment start), hr (bpm), rmssd (ms)
+# physio_replay.py reads its own WESAD export through this file, so a new
+# wearable source only needs a new block here.
+#
+# Supported units: hr bpm|hz, rmssd ms|s. time.format: seconds | minutes (relative).
+# ids.<name>.value_map: rows whose value is not in the map are dropped.
+standard: wearable
+sources:
+  wesad_export:            # written by `python -m spacefuzz.readers.physio_replay --build`
+    file: data/processed/wesad_hr_hrv.csv
+    time: {column: t_s, format: seconds}
+    ids:
+      subject: {column: subject}
+      segment_id: {column: segment}
+      condition:
+        column: wesad_label
+        value_map: {1: baseline, 2: stress, 3: amusement, 4: meditation}  # 0, 5-7 dropped
+    fields:
+      hr: {column: hr_bpm, unit: bpm}
+      rmssd: {column: rmssd_ms, unit: ms}

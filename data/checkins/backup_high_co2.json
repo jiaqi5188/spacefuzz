@@ -1,0 +1,25 @@
+{
+  "plan": "backup_high_co2",
+  "source": "synthetic_example",
+  "check_window": "morning",
+  "check_time": "06:30",
+  "wake_time": "06:00",
+  "sleep_last_night_h": 7.0,
+  "sleep_last_3_nights_h": [
+    7.0,
+    6.8,
+    7.0
+  ],
+  "sleep_efficiency_pct": 86,
+  "systolic_bp": 122,
+  "diastolic_bp": 79,
+  "blood_glucose": 98,
+  "mood": 3,
+  "stress": 3,
+  "fatigue_score": 3,
+  "food_water_intake": {
+    "meals": "normal",
+    "water_l_24h": 2.0
+  },
+  "reaction_time_ms": 270
+}
