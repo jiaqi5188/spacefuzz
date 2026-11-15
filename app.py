@@ -28,7 +28,7 @@ from ui import actions, body_map, charts, common, fuzz_log, guard, hud, nav, pla
 from ui import checkin_store as cs
 from ui import theme
 from ui.common import (brief, brief_html, clock, esc, illustrative_badge, no_change_text,
-                       pct as fmt_pct, tip)
+                       loading_html, pct as fmt_pct, tip)
 
 ROOT = Path(__file__).resolve().parent
 PLANS_DIR = ROOT / "data" / "plans"
@@ -231,24 +231,43 @@ CSS = """
   border-bottom:1px solid var(--sf-grid); font-size:14px; }
 .sf-ind:last-child { border-bottom:none; }
 .sf-small { font-size:12px; color:var(--sf-muted); }
+.sf-warn { display:inline-block; position:relative; top:1px; }   /* the sign sat high */
 .sf-table { width:100%; border-collapse:collapse; font-size:13px; }
 .sf-table td { padding:3px 6px; border-bottom:1px solid var(--sf-grid); }
 .sf-table tr.new td { color:var(--sf-green); }
 .sf-table tr.env td { color:var(--sf-yellow); font-style:italic; }
 .sf-risk { font-size:44px; font-weight:700; line-height:1.1; }
-.sf-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
+/* the risk row is 48px before and after the reveal (idle text vs number): no 1px jump */
+.sf-risk[data-testid="risk-probability"] { height:48px; }
+.sf-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:8px; }
 .sf-card { background:var(--sf-panel); border:1px solid var(--sf-line); border-left:4px solid var(--c);
-  border-radius:8px; padding:10px 14px; font-size:14px; }
+  border-radius:8px; padding:8px 12px; font-size:13px; line-height:1.45; }
 .sf-chain { color:var(--sf-ink); }
 .sf-fold { margin-top:8px; }
 .sf-fold summary { cursor:pointer; font-size:12px; color:var(--sf-muted); }
+/* the folded tables open and close smoothly, like the expanders (Chrome 131+; elsewhere
+   they simply open) */
+.sf-fold { interpolate-size:allow-keywords; }
+.sf-fold::details-content { block-size:0; overflow:hidden;
+  transition:block-size .3s ease, content-visibility .3s allow-discrete; }
+.sf-fold[open]::details-content { block-size:auto; }
 /* Fixed heights: a panel keeps its size when the forecast fills it, so nothing below moves
    and the eye goes to what changed. Long content scrolls inside the panel. */
 .sf-fix { overflow-y:auto; }
-.sf-act { height:120px; }
+.sf-act { height:130px; }
+/* before the forecast: one grey line in the risk number's row height (no "--" glyphs, whose
+   dashes sit above the text baseline and looked misaligned) */
+.sf-risk-idle { height:48px; display:flex; align-items:center; font-size:22px; font-weight:600; }
 .sf-summary { height:96px; }
 .sf-summary .rows { font-size:13px; line-height:1.5; }
-.sf-compare { min-height:360px; }
+.sf-compare { min-height:360px; container-type:inline-size; }
+/* adjusted plan table opened at the foot of the panel: the panel scrolls to its end by itself
+   (a column-reverse scroller starts at its end), so the whole table shows without scrolling;
+   margin-bottom:auto keeps short content at the top */
+.sf-compare:has(details[open]) { display:flex; flex-direction:column-reverse; }
+.sf-compare-in { margin-bottom:auto; }
+.sf-compare-risk { font-size:34px; white-space:nowrap; }
+@container (max-width: 360px) { .sf-compare-risk { font-size:24px; } }   /* 4-column layout */
 [data-testid="advice-cards"] { min-height:300px; align-items:start; }
 </style>
 """
@@ -335,7 +354,7 @@ def indicators_html(rows: list[dict]) -> str:
 NAP_ADVICE = common.NAP_ADVICE
 
 
-def act_now_view(res: dict | None, frames: list, shown: int) -> str:
+def act_now_view(res: dict | None, frames: list, shown: int, busy: bool = False) -> str:
     """Act now at playback frame `shown`: the engine's advice once the forecast is revealed,
     pointing to the adjusted plan's nap only once the adjustment is revealed."""
     done = {f.get("done") for f in frames[:shown]}
@@ -344,14 +363,15 @@ def act_now_view(res: dict | None, frames: list, shown: int) -> str:
     # forecast shown, adjustment not yet: an adjusted plan with its own nap is coming, so do
     # not show the engine's generic "20-minute nap" only to replace it a few seconds later
     pending = fc is not None and adj is None and _nap((res or {}).get("adjust")) is not None
-    return act_now_html(fc, adj, nap_pending=pending)
+    return act_now_html(fc, adj, nap_pending=pending, busy=busy)
 
 
-def act_now_html(fc: dict | None, adj: dict | None = None, nap_pending: bool = False) -> str:
+def act_now_html(fc: dict | None, adj: dict | None = None, nap_pending: bool = False,
+                 busy: bool = False) -> str:
     """Act-now advice. When the adjusted plan schedules a nap, the generic nap advice from
     the engine ("a 20-minute nap") points to that nap instead, so the two never disagree."""
     if fc is None:
-        body = '<div class="sf-small">Shown with the forecast.</div>'
+        body = loading_html() if busy else '<div class="sf-small">Shown with the forecast.</div>'
     else:
         lines = fc["advice_now"] + fc.get("action_restrictions", [])
         nap = _nap(adj)
@@ -384,14 +404,16 @@ def coverage_summary(warnings: list[str]) -> str:
         parts.append(f"{len(ooe)} outside experience")
     if not parts:
         return ""
-    return (f'<div class="sf-small" style="color:var(--sf-muted)">⚠ {esc(" · ".join(parts))}'
+    return (f'<div class="sf-small" style="color:var(--sf-muted)"><span class="sf-warn">⚠</span> '
+            f'{esc(" · ".join(parts))}'
             f'{tip(" ".join(warnings) + " Details: the [cover] lines of the fuzz log.")}</div>')
 
 
-def risk_html(fc: dict | None, start_min: int, revealed: bool) -> str:
-    if not revealed or fc is None:
-        risk, rating, color = "--", "not forecast yet", "grey"
-        ttc = "--"
+def risk_html(fc: dict | None, start_min: int, revealed: bool, busy: bool = False) -> str:
+    idle = not revealed or fc is None
+    if idle:
+        risk, rating, color = "", "Not forecast yet", "grey"
+        ttc = "&nbsp;"                       # keeps the row: nothing moves at the reveal
     else:
         rating = fc["risk_rating"]
         color = RATING_COLOR[rating]
@@ -407,10 +429,13 @@ def risk_html(fc: dict | None, start_min: int, revealed: bool) -> str:
     warn = (coverage_summary((fc or {}).get("coverage_warnings", [])) if revealed else "") or \
         '<div class="sf-small">&nbsp;</div>'
     return (f'<div class="sf-panel"><div class="sf-h">Today\'s forecast{tip(what)}</div>'
-            f'<div class="sf-risk" data-testid="risk-probability" data-rating="{color}" '
-            f'style="color:{COLOR[color]}">{risk} <span style="font-size:20px">{esc(rating)}'
-            f'</span></div>'
-            f'<div style="margin-top:6px" data-testid="time-to-crash">{ttc}</div>'
+            + (f'<div class="sf-risk sf-risk-idle" data-testid="risk-probability" '
+               f'data-rating="grey" style="color:{COLOR["grey"]}">'
+               f'{loading_html("Forecasting", 1) if busy else esc(rating)}</div>' if idle else
+               f'<div class="sf-risk" data-testid="risk-probability" data-rating="{color}" '
+               f'style="color:{COLOR[color]}">{risk} <span style="font-size:20px">{esc(rating)}'
+               f'</span></div>')
+            + f'<div style="margin-top:6px" data-testid="time-to-crash">{ttc}</div>'
             f'<div data-testid="coverage-warnings">{warn}</div></div>')
 
 
@@ -430,17 +455,19 @@ def retest_text(retest: dict) -> tuple[str, str]:
     return "Re-tested ✓", f"Schedule slip check: {retest['slip_margin']}. {guided}".strip()
 
 
-def comparison_html(adj: dict | None, original_plan: dict, revealed: bool) -> str:
+def comparison_html(adj: dict | None, original_plan: dict, revealed: bool,
+                    busy: bool = False) -> str:
     head = '<div class="sf-h">Before / after</div>'
     if not revealed or adj is None or not adj.get("plan_adjustment"):
-        body = '<div class="sf-small">Shown after the adjustment is re-tested.</div>'
+        body = (loading_html("Adjusting and re-testing", 3) if busy and not revealed else
+                '<div class="sf-small">Shown after the adjustment is re-tested.</div>')
         return f'<div class="sf-panel sf-compare" data-testid="risk-comparison">{head}{body}</div>'
     pa = adj["plan_adjustment"]
     c_before = COLOR[RATING_COLOR[adj["risk_rating"]]]
     c_after = COLOR[RATING_COLOR[pa["rating_after"]]]
     lay = layers(adj)
     parts = [
-        f'<div class="sf-risk" style="font-size:34px"><span style="color:{c_before}">'
+        f'<div class="sf-risk sf-compare-risk"><span style="color:{c_before}">'
         f'{fmt_pct(pa["risk_before"])}</span> → <span style="color:{c_after}" '
         f'data-testid="risk-after" data-rating="{RATING_COLOR[pa["rating_after"]]}">'
         f'{fmt_pct(pa["risk_after"])} {esc(pa["rating_after"])}</span></div>',
@@ -472,8 +499,9 @@ def comparison_html(adj: dict | None, original_plan: dict, revealed: bool) -> st
                      f'{tip("New or moved tasks in green.")}</summary>'
                      + plan_table_html(adjusted, "plan-table-adjusted", original_plan)
                      + '</details>')
-    return (f'<div class="sf-panel sf-compare" data-testid="risk-comparison">{head}'
-            f'{"".join(parts)}</div>')
+    # one inner block: with the plan table open the panel anchors at its end (CSS)
+    return (f'<div class="sf-panel sf-compare" data-testid="risk-comparison">'
+            f'<div class="sf-compare-in">{head}{"".join(parts)}</div></div>')
 
 
 def measurement_lines(adj: dict | None) -> list[str]:
@@ -487,16 +515,22 @@ def measurement_lines(adj: dict | None) -> list[str]:
     return advice.measurement_prompts(keep)
 
 
-def cards_html(fc: dict | None, adj: dict | None, revealed: bool) -> str:
+def advice_panel(inner: str) -> str:
+    """The advice cards in a panel like the others (fixed height: nothing below moves)."""
+    return (f'<div class="sf-panel sf-advice sf-fix" data-testid="advice-cards">'
+            f'<div class="sf-h">Advice</div>{inner}</div>')
+
+
+def cards_html(fc: dict | None, adj: dict | None, revealed: bool, busy: bool = False) -> str:
     if not revealed or fc is None:
-        body = '<div class="sf-small">Advice cards appear after the forecast.</div>'
-        return f'<div data-testid="advice-cards">{body}</div>'
+        return advice_panel(loading_html("Forecasting", 3) if busy else
+                            '<div class="sf-small">Advice cards appear after the forecast.</div>')
     rating = fc["risk_rating"]
     c = COLOR[RATING_COLOR[rating]]
     if rating == "UNKNOWN":
         msg = fc.get("message") or qg.UNTRUSTED_MESSAGE
         cards = [f'<div class="sf-card" style="--c:{c}">{esc(msg)}</div>']
-        return f'<div class="sf-cards" data-testid="advice-cards">{"".join(cards)}</div>'
+        return advice_panel(f'<div class="sf-cards">{"".join(cards)}</div>')
     a = adj or {}
     links = [brief(x) for x in fc["causal_chain"]]
     chain = " <b>→</b> ".join(f"<span>{esc(short)}</span>" for short, _ in links)
@@ -526,7 +560,7 @@ def cards_html(fc: dict | None, adj: dict | None, revealed: bool) -> str:
         cards.append(f'<div class="sf-card" data-testid="card-boundary" '
                      f'style="--c:{COLOR["grey"]}"><b>Closest crash</b><div>'
                      f'{brief_html(a["min_crash_perturbation"])}</div></div>')
-    return f'<div class="sf-cards" data-testid="advice-cards">{"".join(cards)}</div>'
+    return advice_panel(f'<div class="sf-cards">{"".join(cards)}</div>')
 
 
 # ---------------------------------------------------------------- page
@@ -557,25 +591,30 @@ class View:
 def status_html(v: View) -> str:
     """One line under Run Forecast: what to do, or what is happening (fixed height)."""
     if v.busy and v.res is None:
-        text, more = "Fuzzing today's plan...", ("Read from the engine cache when it is fresh, "
-                                                 "otherwise a full run that takes minutes.")
+        text, more = "Running", ("Fuzzing today's plan: read from the engine cache when it is "
+                                 "fresh, otherwise a full run that takes minutes.")
     elif v.busy:
-        text, more = "Replaying the run...", ""
+        text, more = "Replaying", "Replaying the fuzzing run."
     elif v.ended:
         text, more = "Done", "Press again to replay the run."
     else:
-        text, more = "Start here", "Fuzz today's plan, then adjust it."
+        text, more = "Start", "Fuzz today's plan, then adjust it."
     call = "" if (v.busy or v.ended) else '<style>.st-key-run_forecast button{animation:sf-call 2.4s ease-in-out infinite}</style>'
-    return (f'<div class="sf-status" data-testid="run-status">{esc(text)}{tip(more)}</div>'
+    # no visible text (the panels' loading states show what is happening); the state stays as
+    # a hidden marker for the tests and the video recorder
+    state = text.lower()
+    return (f'<div data-testid="run-status" data-state="{state}" title="{esc(more)}" '
+            f'style="display:none"></div>{call}'
             f'{call}')
 
 
-def run_summary_html(fc: dict | None, revealed: bool) -> str:
+def run_summary_html(fc: dict | None, revealed: bool, busy: bool = False) -> str:
     """Engine screen, under Run Forecast: what the run did, in three short lines (fixed
     height, so the charts below never move)."""
     head = '<div class="sf-h">Run summary</div>'
     if not revealed or fc is None or fc.get("risk_rating") == "UNKNOWN":
-        rows = '<div class="sf-small">Shown with the forecast.</div>'
+        rows = (loading_html() if busy and not revealed else
+                '<div class="sf-small">Shown with the forecast.</div>')
     else:
         prob, guided = fc.get("probability_track") or {}, fc.get("guided_track") or {}
         perf = fc.get("performance") or (fc.get("details") or {}).get("performance_before") or {}
@@ -603,12 +642,12 @@ def regions(v: View) -> dict:
     return {
         "topbar": lambda: topbar_html(s, res),
         "indicators": lambda: indicators_html(s["indicators"]),
-        "act_now": lambda: act_now_view(res, frames, shown),
-        "risk": lambda: risk_html(fc, s["start_min"], "forecast" in done),
+        "act_now": lambda: act_now_view(res, frames, shown, busy=v.busy),
+        "risk": lambda: risk_html(fc, s["start_min"], "forecast" in done, busy=v.busy),
         "status": lambda: status_html(v),
-        "compare": lambda: comparison_html(adj, s["plan"], "adjust" in done),
-        "cards": lambda: cards_html(fc, adj, "forecast" in done),
-        "summary": lambda: run_summary_html(fc, "forecast" in done),
+        "compare": lambda: comparison_html(adj, s["plan"], "adjust" in done, busy=v.busy),
+        "cards": lambda: cards_html(fc, adj, "forecast" in done, busy=v.busy),
+        "summary": lambda: run_summary_html(fc, "forecast" in done, busy=v.busy),
         "markers": lambda: marks or "<div></div>",
     }
 
@@ -630,9 +669,35 @@ def refresh(v: View) -> None:
             v.sent[name] = h
 
 
+def run_progress_css(compute_s: float, replay_s: float, phase: str, elapsed: float,
+                     compute_elapsed: float | None = None) -> str:
+    """A rough % on the busy Run Forecast button, counted up by the browser (ui/actions.py),
+    so it moves while Python is busy computing. Compute takes the first share (by its
+    estimate) and keeps creeping up past the estimate; the replay runs on to 100 %."""
+    compute_s, replay_s = max(compute_s, 0.1), max(replay_s, 0.1)   # tests: no animation time
+    share = min(95.0, 100.0 * compute_s / (compute_s + replay_s))
+    if phase == "compute":
+        return actions.compute_css("run_forecast", compute_s, share, elapsed)
+    start = actions.eased_pct(compute_s if compute_elapsed is None else compute_elapsed,
+                              compute_s, share)
+    return actions.finish_css("run_forecast", start, replay_s, elapsed)
+
+
 def run_button(v: View, target=st) -> None:
     actions.button(target, "Run Forecast", "Running forecast...", RUN, v.busy, "run_forecast",
                    {"key": v.static["key"]})
+    j = st.session_state.get(actions.JOB)
+    if v.busy and j:
+        est = ui_config.RUN_ESTIMATE_S
+        compute = est["edited"] if v.static.get("checkin_json") else est["cached"]
+        if v.res is None:                         # step 1: computing (or reading the cache)
+            css = run_progress_css(compute, est["replay"], "compute",
+                                   time.time() - j.get("t0", j["t"]))
+        else:                                     # step 2: the replay, its real length
+            replay = sum(frame_wait(f, k == len(v.frames) - 1) for k, f in enumerate(v.frames))
+            css = run_progress_css(compute, replay, "replay", time.time() - j["t"],
+                                   compute_elapsed=j["t"] - j.get("t0", j["t"]))
+        target.html(css)
     put(v, "status")
     actions.show_error(target)                    # only after a failed run
 
@@ -652,17 +717,91 @@ def panels(v: View, *names: str) -> None:
 
 
 def choose_scenario(disabled: bool) -> str:
+    """The scenario picker, in the sidebar of every page (drawn by the router, one shared
+    key): the check-in, midday and reference pages follow the same scenario."""
     q = st.query_params.get("scenario")
     names = list(SCENARIOS)
     default = names.index(q) if q in SCENARIOS else 0
     return st.sidebar.selectbox("Scenario", names, index=default, format_func=SCENARIOS.get,
-                                disabled=disabled)
+                                disabled=disabled, key="scenario_select")
+
+
+def router() -> None:
+    """Every page: the scenario picker in the sidebar, then the page the menu points to."""
+    name = choose_scenario(disabled=actions.job(RUN, actions.COMPUTE_STALE_S) is not None)
+    st.session_state["active_scenario"] = name
+    st.navigation(nav.pages()).run()
+
+
+def fixed_heights_css(h: dict) -> str:
+    """Fixed panel heights for one layout (the same before, during and after the run, so the
+    columns end level and nothing jumps); only the keys given are set."""
+    rules = {"act": ".sf-panel.sf-act {{ height:{}px; }}",
+             "compare": ".sf-compare {{ height:{}px; min-height:0; overflow-y:auto; }}",
+             "advice": ".sf-advice {{ height:{}px; overflow-y:auto; }}",
+             "summary": ".sf-summary {{ height:{}px; }}",
+             "indicators": '.sf-panel[data-testid="indicators"] {{ height:{}px; }}'}
+    return "<style>" + " ".join(rules[k].format(v) for k, v in h.items() if k in rules) + "</style>"
+
+
+def four_body_css(column_px: int) -> str:
+    """Column B (Run Forecast, plan table, body map) at a fixed height, the body map taking
+    what is left: opening the plan table squeezes the space around the figure instead of
+    lengthening the column (user, 11/15)."""
+    return ("<style>"
+            # doubled class: Streamlit's own block class sets height:auto after this
+            f".st-key-four_body.st-key-four_body {{ height:{column_px}px; flex:none; flex-wrap:nowrap; }} "
+            ".st-key-four_body > .st-key-body_map { flex:1 1 0; min-height:0; } "
+            ".st-key-four_body > .st-key-body_map > div { height:100%; } "
+            ".st-key-four_body > .st-key-body_map iframe { height:100% !important; "
+            "display:block; }</style>")
+
+
+def four_layout(v: View, wide: bool) -> None:
+    """The dashboard in four columns (ui_config.DASHBOARD_COLUMNS = 4): what the crew reported |
+    the body | the decision (risk, Run Forecast, Act now, before / after) | the plan and the
+    engine (plan board, advice cards, fuzz log). On a 13-14 inch screen the adjusted risk and
+    the advice are on the first screen. From WIDE_MIN_PX the charts get a fifth column."""
+    put(v, "topbar")
+    h = ui_config.FOUR_HEIGHTS                # fixed: the same before, during and after the run
+    st.html(fixed_heights_css(h) + four_body_css(h["column"]) + marker("layout-four"))
+    cols = st.columns(ui_config.COLUMNS_FOUR_WIDE if wide else ui_config.COLUMNS_FOUR,
+                      gap="small")
+    a, b, c, d = cols[:4]
+    with a:
+        put(v, "indicators")
+        charts.show_trends(v.static, height=h["trend"])
+    with b, st.container(key="four_body"):    # Run Forecast on top of the body map
+        run_button(v)
+        # opened, the plan table takes room from the body map (four_body_css), not the page
+        with st.expander("Today's plan as a table", icon=":material/table_rows:",
+                         key="plan_table_exp"):
+            st.html(plan_table_html(v.static["plan"], "plan-table"))
+        body_map.show(v.static, v.res, v.shown, v.frames, height=h["body"])
+    with c:
+        put(v, "risk")
+        put(v, "act_now")
+        put(v, "compare")
+    with d:
+        plan_board.show(v.static, v.res, v.shown, v.frames,
+                        height=ui_config.BOARD_HEIGHT["four"])
+        put(v, "cards")
+    panels(v, "progress")                     # full width under the columns: easier to read
+    if wide:
+        with cols[4]:
+            st.html(marker("layout-wide"))
+            charts.show(v.static, v.res, v.shown, v.frames, stacked=True, busy=v.busy)
+    hud.show(v.static, ready=v.ended and not v.busy, busy=v.busy)
+    if not wide:
+        charts.show(v.static, v.res, v.shown, v.frames, busy=v.busy)
 
 
 def full_layout(v: View, wide: bool) -> None:
     """The whole dashboard. Above the fold at 1440x800 (13-inch laptop) and up: risk number,
     Run Forecast, plan board, body map. From WIDE_MIN_PX the fuzz log and the charts move to a
     fourth column, so the page needs (almost) no scrolling."""
+    if ui_config.DASHBOARD_COLUMNS == 4:
+        return four_layout(v, wide)
     put(v, "topbar")
     cols = st.columns(ui_config.COLUMNS_WIDE if wide else ui_config.COLUMNS, gap="small")
     left, middle, right = cols[:3]
@@ -696,36 +835,48 @@ def full_layout(v: View, wide: bool) -> None:
         charts.show(v.static, v.res, v.shown, v.frames)
 
 
+def role_css(view: str) -> str:
+    """Per role screen: under a panel (10 px bottom margin) Run Forecast had more room above
+    than below; the button moves up by that margin."""
+    if view in ("surgeon", "engine"):
+        return "<style>.st-key-run_forecast { margin-top:-10px; }</style>"
+    return ""
+
+
 def view_layout(v: View, view: str) -> None:
     """One screen per role, all reading the same results (multi-screen demo, video shots)."""
     put(v, "topbar")
-    st.html(marker(f"view-{view}"))
+    st.html(marker(f"view-{view}") + role_css(view))
     if view == "crew":                          # few, large items: the visor, then the day's plan
-        hud.show_visor(v.static, v.res if v.ended else None)   # full width: laid out for it
+        hud.show_visor(v.static, v.res if v.ended else None, busy=v.busy)   # full width
         run_button(v)
         plan_board.show(v.static, v.res, v.shown, v.frames,
                         height=ui_config.BOARD_HEIGHT["wide"])     # full width: fewer lines
     elif view == "surgeon":                     # decide: risk, what to do now, before/after
+        st.html(fixed_heights_css(ui_config.SURGEON_HEIGHTS))
         risk_col, act_col, cards_col = st.columns(3, gap="small")
         with risk_col:                          # panels that grow at the reveal sit last
             put(v, "risk")
             run_button(v)
             put(v, "indicators")
-            theme.page_link(st, "pages/2_Indicators.py", "Why these indicators", "📖")
+            theme.page_link(st, "page_files/2_Indicators.py", "Why these indicators", "📖")
         with act_col:
             put(v, "act_now")
             put(v, "compare")
         with cards_col:
             put(v, "cards")
     else:                                       # engine: how the fuzzer got there
+        st.html(fixed_heights_css(ui_config.ENGINE_HEIGHTS))
         left, right = st.columns([2, 3], gap="small")   # same split as the two charts below
         with left:
             put(v, "risk")
             run_button(v)
             put(v, "summary")
-        with right:
-            panels(v, "progress")
-        charts.show(v.static, v.res, v.shown, v.frames)
+        with right:                             # log as tall as the left column
+            fuzz_log.show(v.static, v.res, v.shown, v.frames,
+                          height=ui_config.ENGINE_HEIGHTS["log"])
+        charts.show(v.static, v.res, v.shown, v.frames, busy=v.busy,
+                    height=ui_config.ENGINE_HEIGHTS["charts"])   # the footer on a 14" screen
 
 
 def footer_html() -> str:
@@ -740,8 +891,7 @@ def main(view: str | None = None) -> None:
     st.html(CSS)                                  # style-only: takes no room on the page
     st.html(f"<style>{(ROOT / 'ui' / 'styles.css').read_text()}</style>")
     ss = st.session_state
-    name = choose_scenario(disabled=actions.job(RUN, actions.COMPUTE_STALE_S) is not None)
-    ss["active_scenario"] = name                  # the check-in page follows this scenario
+    name = ss.get("active_scenario") or list(SCENARIOS)[0]   # picked in the router's sidebar
     static = load_static(name)
     key = static["key"]                           # scenario + check-in (edited or example)
     results = ss.setdefault("results", {})
@@ -795,4 +945,4 @@ def main(view: str | None = None) -> None:
 
 
 if __name__ == "__main__":     # streamlit run / AppTest; not on import (tests, ui/nav.py)
-    guard.run(lambda: st.navigation(nav.pages()).run())
+    guard.run(router)

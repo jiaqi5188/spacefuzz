@@ -27,7 +27,7 @@ from spacefuzz.core import state
 import ui_config
 from ui import live_frame, theme
 from spacefuzz.core.plan_types import PlanType
-from ui.common import clock, esc as _esc, tip
+from ui.common import clock, esc as _esc, loading_html, tip
 
 FRAME_SELECTOR = 'iframe[srcdoc*="sf-hud"]'
 HEIGHT_PX = 250
@@ -255,11 +255,17 @@ def html_doc(adj: dict | None, baseline: state.Baseline, start_min: int,
 
 # ---------------------------------------------------------------- Streamlit
 
-def show_visor(static: dict, res: dict | None) -> None:
+def visor_pending_html(busy: bool = False) -> str:
+    """The visor's slot before it appears: the same height, a loading state while running."""
+    inner = (loading_html("The HUD loads with the forecast", 2) if busy else
+             "The in-mission HUD appears after the forecast.")
+    return f'<div class="sf-pending sf-hud-slot" style="height:{HEIGHT_PX}px">{inner}</div>'
+
+
+def show_visor(static: dict, res: dict | None, busy: bool = False) -> None:
     """The visor at a fixed height: the replay once there are results, a note before."""
     if res is None:
-        st.html(f'<div class="sf-pending" style="height:{HEIGHT_PX}px">The in-mission HUD '
-                f'appears after the forecast.</div>')
+        st.html(visor_pending_html(busy))
         return
     live_frame.show(html_doc(res.get("adjust"), state.make_baseline(), static["start_min"],
                              events=static["plan"].get("events"), forecast_ran=True),
@@ -267,7 +273,7 @@ def show_visor(static: dict, res: dict | None) -> None:
 
 
 @st.fragment
-def show(static: dict, ready: bool = True) -> None:
+def show(static: dict, ready: bool = True, busy: bool = False) -> None:
     """Toggle + HUD (fragment: switching never reruns the page or reloads other iframes).
     ready=False while a forecast is computed or replayed: the HUD waits for the replay."""
     on = st.toggle("In-mission HUD", key="hud_on", value=True,   # on: judges should see it
@@ -278,10 +284,8 @@ def show(static: dict, ready: bool = True) -> None:
         return
     key = static.get("key", static["name"])
     res = st.session_state.get("results", {}).get(key)
-    if not res or not st.session_state.get("shown", {}).get(key):
-        st.caption("The HUD is available after the forecast: press Run Forecast first.")
-        return
-    if not ready:
-        st.caption("The HUD appears when the forecast replay ends.")
+    if not res or not st.session_state.get("shown", {}).get(key) or not ready:
+        # the visor's own height, reserved before it appears: nothing below jumps
+        st.html(visor_pending_html(busy))
         return
     show_visor(static, res)

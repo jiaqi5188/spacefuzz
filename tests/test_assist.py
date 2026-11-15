@@ -21,7 +21,7 @@ from ui import assist, guard  # noqa: E402
 from ui import checkin_store as cs  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGE = ROOT / "pages" / "1_Morning_check-in.py"
+PAGE = ROOT / "page_files" / "1_Morning_check-in.py"
 MAIN = "main_sleep_debt_eva"
 
 

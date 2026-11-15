@@ -108,7 +108,8 @@ def test_crew_hud_spans_the_full_width_above_the_board():
 def test_wide_layout_stacks_the_charts(monkeypatch):
     from ui import charts
     seen = []
-    monkeypatch.setattr(charts, "_result_charts", lambda res, stacked=False: seen.append(stacked))
+    monkeypatch.setattr(charts, "_result_charts",
+                        lambda res, stacked=False, height=400: seen.append(stacked))
     play(app(wide="1"))
     play(app(wide="0"))
     assert seen == [True, False]

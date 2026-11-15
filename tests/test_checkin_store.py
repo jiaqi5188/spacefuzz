@@ -95,3 +95,26 @@ def test_component_resizes_and_times_out_a_missed_stimulus():
     assert "ResizeObserver" in html                    # the frame follows its content
     assert "misses" in html and "plausible_ms[1]" in html
     assert "white-space: nowrap" in html                # "Run again" stays on one line
+
+
+def test_reaction_pad_changes_border_and_background_in_every_state():
+    """Go, false start and miss each recolour the pad itself, not only its text (11/15)."""
+    import re
+    html = (ROOT / "ui" / "reaction_test" / "index.html").read_text()
+    for state in ("go", "early", "missed"):
+        rule = re.search(r"#pad\." + state + r" \{([^}]*)\}", html)
+        assert rule and "border-color" in rule.group(1) and "background" in rule.group(1), state
+    assert 'classList.add("missed")' in html and 'classList.remove("go", "missed")' in html
+
+
+def test_reaction_pad_starts_the_test_and_go_is_green():
+    """Clicking "Ready" starts the test like Start does; go is green, early red, miss grey,
+    like a traffic light; the stats line stays on one line (user, 11/15)."""
+    import re
+    html = (ROOT / "ui" / "reaction_test" / "index.html").read_text()
+    assert 'startBtn.addEventListener("click", begin)' in html
+    assert "if (!running) { begin(); return; }" in html            # pad: first click starts
+    go = re.search(r"#pad\.go \{([^}]*)\}", html).group(1)
+    assert "var(--green)" in go and "var(--yellow)" not in go
+    stats = re.search(r"#stats \{([^}]*)\}", html).group(1)
+    assert "nowrap" in stats and "ellipsis" in stats

@@ -177,3 +177,12 @@ def test_risk_text_cannot_close_the_script_tag():
     doc = pb.html_doc("final", pb.match_tasks(ORIG, ADJ), rs, events=[])
     script = doc.split("<script>", 1)[1]
     assert script.count("</script>") == 1
+
+
+def test_header_keeps_one_height_so_the_timeline_never_moves():
+    """Before the run the corner holds "--" only, after it the number, chip and original
+    line: the header has a fixed height, so the timeline below stays put (user, 11/15)."""
+    import re
+    doc = pb.html_doc("idle", pb.match_tasks(ORIG, None), None, [])
+    rule = re.search(r"\.top \{([^}]*)\}", doc).group(1)
+    assert f"height:{pb.TOP_PX}px" in rule and "flex:none" in rule

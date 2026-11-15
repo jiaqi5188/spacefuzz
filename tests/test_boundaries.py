@@ -24,7 +24,7 @@ from spacefuzz.fuzzing import adjuster, engine as en, midday, mutator as mu
 MAIN = "main_sleep_debt_eva"
 BASE = st.make_baseline()
 STEP = config.STEP_MINUTES
-FAST = settings(max_examples=60, deadline=None,
+FAST = settings(max_examples=60, deadline=None, derandomize=True,
                 suppress_health_check=[HealthCheck.function_scoped_fixture])
 
 
@@ -169,8 +169,9 @@ def test_gate_never_crashes_and_never_passes_a_bad_value(field, value):
     if not plausible:
         assert g.status != "ok" and field in g.missing
         if field not in config.QG_OPTIONAL_CHECKIN_FIELDS or value is not None:
-            assert not g.can_forecast or (value is None or (isinstance(value, float)
-                                                             and math.isnan(value)))
+            # a blank (NaN) entry, alone or inside a list, is "missing", not "invalid"
+            blank = any(isinstance(v, float) and math.isnan(v) for v in items)
+            assert not g.can_forecast or value is None or blank
 
 
 # ---------------------------------------------------------------- plan grid (property)

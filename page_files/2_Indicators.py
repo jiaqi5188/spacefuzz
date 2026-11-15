@@ -96,7 +96,7 @@ def main() -> None:
     st.caption(f"{len(rows)} indicators: {kinds['Direct']} Direct, {kinds['Indirect']} Indirect, "
                f"{kinds['Not labelled']} Not labelled; sources checked by the team: {checked} "
                f"of {len(rows)}.")
-    cols = st.columns(2, gap="medium")
+    cols = st.columns(2, gap="small")
     for i, r in enumerate(rows):
         with cols[i % 2]:
             st.html(card(r))

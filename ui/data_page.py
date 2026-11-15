@@ -1,4 +1,4 @@
-"""NASA Data page (pages/4_Data.py): how the real data enters the model.
+"""NASA Data page (page_files/4_Data.py): how the real data enters the model.
 
 Four blocks, each with a chart in the site palette, one line on what the data does in the
 model, and the dataset name with its link (data/SOURCES.md). Charts are drawn only from files

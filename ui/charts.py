@@ -27,7 +27,7 @@ from spacefuzz.fuzzing import mutator as mu
 from spacefuzz.core import state
 import ui_config
 from ui import checkin_store
-from ui.common import TIP_MARK
+from ui.common import TIP_MARK, loading_html
 
 PAL = ui_config.COLOR
 SURF = ui_config.SURFACE
@@ -338,17 +338,45 @@ def trend_figure(s: dict, height: int = 230, today_status: str = "green") -> go.
 
 # ---------------------------------------------------------------- Streamlit
 
+# indicator row key (app._indicator_rows) -> trend tab
+TREND_OF_INDICATOR = {"heart_rate": "heart_rate", "blood_pressure": "blood_pressure",
+                      "blood_glucose": "blood_glucose", "sleep": "sleep"}
+
+
+def default_trend(indicators: list[dict]) -> str:
+    """The trend tab to open first: the indicator the check-in flags (red before yellow, in
+    tab order); heart rate when nothing with a trend is flagged."""
+    status = {TREND_OF_INDICATOR[r["key"]]: r["status"] for r in indicators
+              if r["key"] in TREND_OF_INDICATOR}
+    for level in ("red", "yellow"):
+        for t in TRENDS:
+            if status.get(t) == level:
+                return t
+    return "heart_rate"
+
+
+def reset_trend_default(ss, static: dict) -> None:
+    """Open the scenario's own default tab whenever the scenario or the check-in changes; a tab
+    the user picks stays until then."""
+    who = static.get("key", static.get("name"))
+    if ss.get("trend_field_for") != who or "trend_field" not in ss:
+        ss["trend_field"] = default_trend(static.get("indicators", []))
+        ss["trend_field_for"] = who
+
+
 @st.fragment
-def show_trends(static: dict) -> None:
+def show_trends(static: dict, height: int = 230) -> None:
     """Left column: one indicator at a time (fragment: switching never reruns the page)."""
     st.html(f"<style>{trend_tab_css()}</style>")
+    reset_trend_default(st.session_state, static)
     key = st.segmented_control("Trend", list(TRENDS), format_func=TRENDS.get,
-                               default="sleep", key="trend_field",
-                               label_visibility="collapsed") or "sleep"
+                               key="trend_field", label_visibility="collapsed",
+                               required=True) \
+        or default_trend(static.get("indicators", []))
     status = {r["key"]: r["status"] for r in static.get("indicators", [])}
-    ind = {"heart_rate": "heart_rate", "blood_pressure": "blood_pressure",
-           "blood_glucose": "blood_glucose", "sleep": "sleep"}.get(key)
+    ind = TREND_OF_INDICATOR.get(key)
     st.plotly_chart(trend_figure(trend_series(static["name"], key, static.get("checkin_json")),
+                                 height=height,
                                  today_status=status.get(ind, "grey")),
                     theme=None, config=PLOT_CONFIG, key="trend_chart")
     st.html('<div data-testid="trends" style="display:none">trends</div>')
@@ -368,13 +396,13 @@ def _has_fan(res: dict) -> bool:
 
 
 @st.fragment
-def _result_charts(res: dict, stacked: bool = False) -> None:
+def _result_charts(res: dict, stacked: bool = False, height: int = 400) -> None:
     """Heatmap and fan side by side, or one above the other in a narrow column (wide layout)."""
     left, right = (st.container(), st.container()) if stacked else \
-        st.columns([2, 3], gap="medium")
+        st.columns([2, 3], gap="small")     # same gap as the panels above
     with left:
         if _has_heatmap(res):
-            st.plotly_chart(heatmap_figure(res), theme=None, config=PLOT_CONFIG,
+            st.plotly_chart(heatmap_figure(res, height), theme=None, config=PLOT_CONFIG,
                             key="heatmap_chart")
         else:
             st.caption(MISSING)
@@ -382,8 +410,10 @@ def _result_charts(res: dict, stacked: bool = False) -> None:
         if _has_fan(res):
             field = st.segmented_control("Fan", list(FAN_FIELDS), format_func=FAN_FIELDS.get,
                                          default="heart_rate", key="fan_field",
-                                         label_visibility="collapsed") or "heart_rate"
-            st.plotly_chart(fan_figure(res, field, state.make_baseline()), theme=None,
+                                         label_visibility="collapsed", required=True) \
+                or "heart_rate"
+            st.plotly_chart(fan_figure(res, field, state.make_baseline(), height - 42),
+                            theme=None,
                             config=PLOT_CONFIG, key="fan_chart")
         else:
             st.caption(MISSING)
@@ -391,11 +421,14 @@ def _result_charts(res: dict, stacked: bool = False) -> None:
 
 
 def show(static: dict, res: dict | None, shown: int, frames: list,
-         stacked: bool = False) -> None:
+         stacked: bool = False, busy: bool = False, height: int = 400) -> None:
     """Heatmap + fan once playback has ended (drawn once per run: they hold widgets)."""
     if res is None or not frames or shown < len(frames) or \
             res["forecast"].get("risk_rating") == "UNKNOWN":
+        size = "" if stacked else f' style="min-height:{height}px"'
         st.html(f'<div data-testid="charts-pending" class="sf-pending sf-chart-slot'
-                f'{" stacked" if stacked else ""}">Charts appear after the forecast.</div>')         # same height as the charts: no jump
+                f'{" stacked" if stacked else ""}"{size}>'
+                f'{loading_html("Charts load with the forecast", 2) if busy else "Charts appear after the forecast."}'
+                f'</div>')         # same height as the charts: no jump
         return
-    _result_charts(res, stacked)
+    _result_charts(res, stacked, height)

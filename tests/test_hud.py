@@ -115,7 +115,8 @@ def test_app_toggle_shows_hud_after_forecast():
     tog = next(t for t in at.toggle if t.label == "In-mission HUD")
     tog.set_value(True).run()
     assert not at.exception
-    assert any("after the forecast" in c.value for c in at.caption)    # no result yet
+    assert any("sf-hud-slot" in h.proto.body and "after the forecast" in h.proto.body
+               for h in at.get("html"))                               # reserved slot, no result
     next(b for b in at.button if b.label == "Run Forecast").click().run()
     assert not at.exception                    # no extra rerun: the HUD shows after playback
     from tests.test_app import frame_docs
@@ -135,11 +136,13 @@ def test_unknown_forecast_says_why_there_is_no_hud():
     assert "after the forecast" not in doc and "data quality" in doc
 
 
-def test_hud_and_plan_table_are_open_by_default():
-    """Feature panels start open, so a judge cannot miss them (user, 2026-11-13)."""
+def test_hud_open_and_plan_table_folded_by_default():
+    """The HUD starts open so a judge cannot miss it (user, 2026-11-13); the plan table is
+    folded so the four columns end level (user, 2026-11-15)."""
     from tests.test_app import fake_results
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30)
     at.session_state["results"] = {MAIN: fake_results()}
     at.run()
     assert next(t for t in at.toggle if t.label == "In-mission HUD").value is True
-    assert at.expander[0].proto.expanded
+    exp = [e for e in at.expander if e.label == "Today's plan as a table"]
+    assert exp and exp[0].proto.expanded is False

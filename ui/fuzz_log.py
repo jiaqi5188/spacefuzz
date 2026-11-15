@@ -485,7 +485,7 @@ if (root.dataset.state === 'play') {
 
 def html_doc(mode: str, lines: list[dict], rounds: int, forecast_s: float = 0.0,
              adjust_s: float = 0.0,
-             series: dict | None = None) -> str:
+             series: dict | None = None, height: int | None = None) -> str:
     """Iframe document. mode: idle | play (types itself) | final (all lines, done marker)."""
     pal = ui_config.COLOR
     if mode == "final":
@@ -505,7 +505,7 @@ def html_doc(mode: str, lines: list[dict], rounds: int, forecast_s: float = 0.0,
     pool = series["pool"][-1] if mode == "final" and series["pool"] else "--"
     marker = ('<div data-testid="fuzz-log-done" style="display:none">fuzz-log-done</div>'
               if mode == "final" else "")
-    css = _CSS % {**pal, "h": HEIGHT_PX - 4}
+    css = _CSS % {**pal, "h": (height or HEIGHT_PX) - 4}
     js = _JS % {"lines": theme.script_json(lines), "rounds": rounds,
                 "fc_ms": int(round(forecast_s * 1000)), "ad_ms": int(round(adjust_s * 1000)),
                 "char_ms": CHAR_MS, "g0": _GUIDED_FROM, "gs": _GUIDED_SPAN,
@@ -521,7 +521,8 @@ def html_doc(mode: str, lines: list[dict], rounds: int, forecast_s: float = 0.0,
 
 # ---------------------------------------------------------------- Streamlit
 
-def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
+def show(static: dict, res: dict | None, shown: int, frames: list,
+         height: int | None = None) -> None:
     """Draw the log for app.py's playback frame `shown` (once per script run)."""
     playing = res is not None and 0 < shown < len(frames)
     mode = "idle" if res is None or shown == 0 else ("play" if playing else "final")
@@ -530,6 +531,6 @@ def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
     rounds = (fc.get("guided_track") or {}).get("rounds", 0)
     f_s, a_s = stage_times(frames) if mode == "play" else (0.0, 0.0)
     doc = html_doc(mode, lines, rounds if res else 0, f_s, a_s,
-                   header_series(fc.get("guided_track") or {}) if res else None)
+                   header_series(fc.get("guided_track") or {}) if res else None, height=height)
     st.html('<div data-testid="fuzz-log" style="display:none">fuzz-log</div>')
-    live_frame.show(doc, HEIGHT_PX, key="fuzz_log")
+    live_frame.show(doc, height or HEIGHT_PX, key="fuzz_log")

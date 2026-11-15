@@ -1,4 +1,4 @@
-"""Tests for pages/4_Data.py (NASA Data): how the real data enters the model.
+"""Tests for page_files/4_Data.py (NASA Data): how the real data enters the model.
 
 The page must render from committed files only (a fresh clone has no data/raw downloads
 except the two committed NASA files), and every block names its dataset with a link."""
@@ -15,7 +15,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 from ui import data_page as dp  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGE = ROOT / "pages" / "4_Data.py"
+PAGE = ROOT / "page_files" / "4_Data.py"
 BLOCKS = ("cabin", "radiation", "stress", "clinical")
 
 

@@ -1,4 +1,4 @@
-"""Tests for pages/2_Indicators.py: every row of data/indicator_sources.md, verbatim."""
+"""Tests for page_files/2_Indicators.py: every row of data/indicator_sources.md, verbatim."""
 import html
 import os
 import re
@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 from ui import indicator_doc as doc  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGE = ROOT / "pages" / "2_Indicators.py"
+PAGE = ROOT / "page_files" / "2_Indicators.py"
 
 
 def page_text(at) -> str:

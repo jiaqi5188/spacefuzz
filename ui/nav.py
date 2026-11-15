@@ -18,11 +18,11 @@ def _dashboard(view: str | None = None):
 # the full dashboard). Old page URLs (/Morning_check-in, /Midday_check, /Indicators) are kept.
 MENU = [
     ("Mission", "Dashboard", "🛰️", "dashboard", None),
-    ("Daily checks", "Morning check-in", "📝", "Morning_check-in", "pages/1_Morning_check-in.py"),
-    ("Daily checks", "Midday check", "🕑", "Midday_check", "pages/3_Midday_check.py"),
+    ("Daily checks", "Morning check-in", "📝", "Morning_check-in", "page_files/1_Morning_check-in.py"),
+    ("Daily checks", "Midday check", "🕑", "Midday_check", "page_files/3_Midday_check.py"),
     *[("Role screens", title, icon, v, v) for v, (title, icon) in ui_config.VIEW_PAGES.items()],
-    ("Reference", "NASA Data", "🛰", "Data", "pages/4_Data.py"),
-    ("Reference", "Indicators (wiki)", "📖", "Indicators", "pages/2_Indicators.py"),
+    ("Reference", "NASA Data", "🛰", "Data", "page_files/4_Data.py"),
+    ("Reference", "Indicators (wiki)", "📖", "Indicators", "page_files/2_Indicators.py"),
 ]
 
 

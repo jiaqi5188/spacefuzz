@@ -43,7 +43,7 @@ def main() -> None:
     st.html(f'<div class="sf-topbar" data-testid="data-topbar"><span>NASA Data</span>'
             f'<span>{esc(ui_config.CREW_MEMBER_NAME)}</span><span class="sub">How real data '
             f'enters the model{tip(NOTE, "l")}</span></div>')
-    cols = st.columns(2, gap="medium")
+    cols = st.columns(2, gap="small")
     for i, b in enumerate(dp.blocks()):
         with cols[i % 2]:
             st.html(block_html(b))

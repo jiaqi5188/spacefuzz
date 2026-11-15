@@ -411,13 +411,13 @@ def test_unknown_forecast_names_what_to_re_measure():
     assert "Re-measure: sleep last night" in app.cards_html(res["forecast"], None, True)
 
 
-def test_three_columns_of_about_equal_length(at):
-    """Left: check-in, act now, trends, plan table; middle: body map, before / after; right:
-    forecast, plan board, fuzz log, advice cards (no empty block mid-page, user 2026-11-13)."""
+def test_dashboard_panels_in_column_order(at):
+    """Four columns (user 2026-11-15): check-in, trends, plan table | body map | forecast,
+    Act now, before / after | plan board, advice cards, fuzz log."""
     h = page_html(at)
     order = [h.index(f'data-testid="{t}"') for t in
-             ("indicators", "act-now", "plan-table", "body-map", "risk-comparison",
-              "risk-probability", "plan-board", "fuzz-log", "advice-cards")]
+             ("indicators", "plan-table", "body-map", "risk-probability", "act-now",
+              "risk-comparison", "plan-board", "advice-cards", "fuzz-log")]
     assert order == sorted(order)
 
 

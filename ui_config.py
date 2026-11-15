@@ -27,6 +27,12 @@ WIDE_MIN_PX = 2400
 # the fourth column (fuzz log, charts) of the wide layout.
 COLUMNS = [4, 4, 5]
 COLUMNS_WIDE = [4, 4, 5, 6]
+# Dashboard layout (user review 2026-11-15 on a 14-inch screen): 4 = check-in | body map |
+# risk, Act now, before / after | plan board, advice cards, fuzz log, so the adjusted risk and
+# the advice are on the first screen; 3 = the earlier three-column layout.
+DASHBOARD_COLUMNS = 4
+COLUMNS_FOUR = [3, 3, 3, 4]                  # the plan board needs about 400 px for "EVA" labels
+COLUMNS_FOUR_WIDE = [3, 3, 3, 4, 5]          # from WIDE_MIN_PX: a fifth column for the charts
 # Role views (?view=... or their own menu entry): one screen each for the crew, the flight
 # surgeon, the engineer; menu titles and icons.
 VIEW_PAGES = {"crew": ("Crew screen (HUD)", "🧑‍🚀"),
@@ -98,6 +104,14 @@ REACTION_LAPSE_MS = 355
 # example input (the self-report said 6.2 h), shown as such in the UI.
 MIDDAY_CHECK_MIN = 14 * 60
 MIDDAY_EXAMPLE = {"main_sleep_debt_eva": {"sleep_last_night_h": 5.9}}
+# midday page: fixed panel heights (px), held by placeholders before the run so nothing
+# pops in; "record" also evens the left column with the right one (risk + board)
+MIDDAY_HEIGHTS = {"record": 250, "risk": 250}
+# rough seconds for the % on the busy Run Forecast button (app.run_progress_css): reading
+# the full cache, computing an edited check-in with the local profile, and the replay
+RUN_ESTIMATE_S = {"cached": 3.0, "edited": 300.0, "replay": 8.0}   # edited: forecast + adjust, local profile, ~5 min
+# the same for Run midday forecast: the example value (cache) or another value (local profile)
+MIDDAY_ESTIMATE_S = {"cached": 1.0, "edited": 240.0}
 
 # Optional AI hint (ui/assist.py): when the quality gate rejects a check-in and an
 # OPENAI_API_KEY is set (environment or .env), the check-in page offers a one-line
@@ -120,4 +134,13 @@ DATA_FOOTER = "Data: NASA OSDR · NASA RadLab (MSL-RAD, DLR DosTel2) · NOAA GOE
 # Plan board iframe height [px] (ui/plan_board.py), measured 2026-11-15 as the lowest content
 # bottom + 10 px padding: a dashboard column needs up to 274 (narrow window, menu open: three
 # legend lines and the safer option); a full-width board (crew screen, midday page) up to 237.
-BOARD_HEIGHT = {"column": 280, "wide": 245}
+BOARD_HEIGHT = {"column": 280, "wide": 245, "four": 280}   # four: the 4th column, menu open too
+
+# Fixed panel heights [px] of the four-column dashboard (user 2026-11-15: "make the four columns
+# the same length", no jump at the reveal). Measured as the tallest content of the three
+# scenarios at 1440 px; column 4 (plan board + advice) sets the target length.
+FOUR_HEIGHTS = {"column": 745, "indicators": 368, "trend": 314, "body": 634, "act": 150,
+                "compare": 404, "advice": 448}
+# Role screens (same rule: fixed, equal columns, no jump at the reveal)
+SURGEON_HEIGHTS = {"indicators": 314, "act": 150, "compare": 394, "advice": 564}
+ENGINE_HEIGHTS = {"summary": 120, "log": 339, "charts": 330}   # charts: 70 px under the default

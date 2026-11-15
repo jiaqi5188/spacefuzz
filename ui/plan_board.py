@@ -41,6 +41,9 @@ LEVEL = {"self": "self-care", "crew": "crew reminder", "ground": "ground surgeon
 
 
 # A narrow block shows the short form instead of an ellipsis ("sci", not "scie...").
+# the header's height with the number, chip and original line all shown: kept before the run
+# too, so the timeline never moves when the result arrives
+TOP_PX = 78
 PB = '<span class="pb">Plan board · </span>'     # title prefix, dropped when the board is narrow
 ABBR = {"science": "sci", "personal": "pers", "maint.": "mnt", "precision": "prec",
         "docking": "dock", "high load": "load", "comm": "com"}
@@ -204,11 +207,13 @@ def midday_risk_states(m: dict) -> dict:
 
 _CSS = """
 * { box-sizing:border-box; }
-body { margin:0; background:var(--sf-panel); color:var(--sf-ink);
+body { margin:0; background:transparent; color:var(--sf-ink); overflow:hidden;
   font:13px/1.4 "Source Sans Pro","Segoe UI",system-ui,sans-serif; }
 #sf-plan-board { border:1px solid var(--sf-line); border-radius:10px; padding:10px 14px;
+  background:var(--sf-panel);
   height:%(h)dpx; overflow:hidden; }
-.top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  height:%(top)dpx; flex:none; overflow:hidden; }
 .h { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--sf-muted); }
 .risk { text-align:right; flex:none; }
 .num { font-size:34px; font-weight:700; line-height:1; transition: color .3s; }
@@ -230,10 +235,11 @@ body { margin:0; background:var(--sf-panel); color:var(--sf-ink);
   transition: left %(t)dms ease-in-out, width %(t)dms ease-in-out, opacity %(t)dms ease,
               box-shadow .3s; }
 .blk { container-type:inline-size; }
-@media (max-width: 460px) { .pb { display:none; } }        /* narrow board: "ADJUSTED PLAN" */
+@media (max-width: 400px) { .pb { display:none; } }        /* narrow board: "ADJUSTED PLAN" */
 .blk .abbr { display:none; }
 @container (max-width: 52px) { .blk .full:not(.keep) { display:none; } .blk .abbr { display:inline; } }
-@container (max-width: 20px) { .blk .full, .blk .abbr { display:none !important; } }   /* no "p..." */
+@container (max-width: 28px) { .blk .abbr { display:none; } }   /* no "pe..." */
+@container (max-width: 20px) { .blk .full { display:none !important; } }   /* no "p..." */
 .blk.eva { background:var(--sf-block-eva); } .blk.focus { background:var(--sf-block-focus); }
 .blk.rest { background:var(--sf-block-rest); color:var(--sf-muted); } .blk.exercise { background:var(--sf-block-exercise); }
 .blk .n { position:absolute; right:3px; bottom:2px; font-weight:700; color:%(yellow)s;
@@ -365,7 +371,7 @@ def html_doc(mode: str, blocks: list[dict], risk: dict | None, events: list,
         past = (f'<div class="past" style="width:{w:.3f}%"><span>already happened</span></div>'
                 f'<div class="now" data-testid="now-line" style="left:{w:.3f}%">'
                 f'<span>now {clock(cutoff_min)}</span></div>')
-    css = _CSS % {**pal, "h": (height or HEIGHT_PX) - 4, "t": int(ui_config.BOARD_S *
+    css = _CSS % {**pal, "top": TOP_PX, "h": (height or HEIGHT_PX) - 4, "t": int(ui_config.BOARD_S *
                                                         ui_config.ANIM_SCALE * 1000)}
     js = _JS % {"risk": theme.script_json(risk) if risk else "null",
                 "fc_ms": int(round(forecast_s * 1000)), "ad_ms": int(round(adjust_s * 1000)),

@@ -6,6 +6,9 @@ dashboard forecasts next (with the local profile, since the cached full-profile 
 belong to the example check-in). The reaction test writes reaction_time_ms by itself.
 """
 
+import hashlib
+import json
+
 import streamlit as st
 
 from spacefuzz.fuzzing import advice
@@ -13,7 +16,7 @@ from spacefuzz.core import quality_gate as qg
 from spacefuzz.core import state
 import ui_config
 from ui import checkin_store as cs
-from ui import assist, nav, reaction, theme
+from ui import actions, assist, nav, reaction, theme
 from ui.common import brief_html, esc, illustrative_badge, neutral_nap, tip
 
 SAMN_PERELLI = {1: "1 fully alert, wide awake", 2: "2 very lively, responsive",
@@ -99,6 +102,44 @@ def section(title: str, how: str, example: bool = False, short: str = "") -> Non
         st.caption(short)
 
 
+# Save with nothing to save: grey, and no hover glow, press shift or focus ring either
+# (!important: the primary button's own hover rule is more specific)
+IDLE_SAVE_CSS = (
+    ".st-key-save_checkin button, .st-key-save_checkin button:hover, "
+    ".st-key-save_checkin button:active, .st-key-save_checkin button:focus, "
+    ".st-key-save_checkin button:focus-visible { background:var(--sf-panel-2) !important; "
+    "border-color:var(--sf-line) !important; box-shadow:none !important; "
+    "transform:none !important; outline:none !important; cursor:default !important; } "
+    ".st-key-save_checkin button * { color:var(--sf-muted) !important; }")
+
+FIELDS = ("systolic_bp", "diastolic_bp", "blood_glucose", "sleep_last_night_h",
+          "sleep_last_3_nights_h", "sleep_efficiency_pct", "mood", "stress", "fatigue_score",
+          "food_water_intake")
+
+
+def _same(a, b) -> bool:
+    if isinstance(a, dict) or isinstance(b, dict):
+        a, b = a or {}, b or {}
+        return all(_same(a.get(x), b.get(x)) for x in set(a) | set(b))
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b))
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(a - b) < 1e-9
+    return a == b
+
+
+def changed(data: dict, cur: dict) -> bool:
+    """Whether the fields differ from the saved check-in (Save is disabled when not)."""
+    return not all(_same(data.get(f), cur.get(f)) for f in FIELDS)
+
+
+def field_key(name: str, cur: dict):
+    """Widget keys tied to the saved values: after Save or Reset the fields start from them."""
+    sig = hashlib.sha1(json.dumps([cur.get(f) for f in FIELDS], sort_keys=True,
+                                  default=str).encode()).hexdigest()[:8]
+    return lambda field: f"ci_{name}_{field}_{sig}"
+
+
 def main() -> None:
     st.set_page_config(page_title="SpaceFuzz · Morning check-in", layout="wide",
                        initial_sidebar_state="collapsed")
@@ -111,56 +152,68 @@ def main() -> None:
             f'values{tip(PREFILLED, "l")}</span></div>')
     nav.link_dashboard(label="Next: Dashboard, press Run Forecast there")
 
-    left, right = st.columns([3, 2], gap="large")
+    left, right = st.columns([3, 2], gap="small")
     with left:
-        with st.form("checkin"):
+        # plain widgets, not a form: Save can tell whether anything differs from the saved
+        # check-in. Keys carry the saved values, so Save and Reset refill the fields.
+        k = field_key(name, cur)
+        with st.container():
             section("Blood pressure", HOW["bp"], example=True, short=HOW_SHORT["bp"])
             c1, c2 = st.columns(2)
             sbp = c1.number_input("Systolic (mmHg)", 40.0, 300.0, float(cur["systolic_bp"]), 1.0,
-                                  format="%.0f")
+                                  format="%.0f", key=k("sbp"))
             dbp = c2.number_input("Diastolic (mmHg)", 20.0, 200.0, float(cur["diastolic_bp"]),
-                                  1.0, format="%.0f")
+                                  1.0, format="%.0f", key=k("dbp"))
             section("Blood glucose", HOW["glucose"], example=True, short=HOW_SHORT["glucose"])
             glu = st.number_input("Blood glucose (mg/dL)", 1.0, 800.0, float(cur["blood_glucose"]),
-                                  1.0, format="%.0f")
+                                  1.0, format="%.0f", key=k("glu"))
             section("Sleep", HOW["sleep"], short=HOW_SHORT["sleep"])
             n3 = list(cur["sleep_last_3_nights_h"])
             c1, c2, c3 = st.columns(3)
             s_last = c1.number_input("Sleep last night (h)", 0.0, 24.0,
-                                     float(cur["sleep_last_night_h"]), 0.1, format="%.1f")
+                                     float(cur["sleep_last_night_h"]), 0.1, format="%.1f",
+                                     key=k("s_last"))
             s_prev = c2.number_input("Night before (h)", 0.0, 24.0, float(n3[1]), 0.1,
-                                     format="%.1f")
+                                     format="%.1f", key=k("s_prev"))
             s_prev2 = c3.number_input("Two nights before (h)", 0.0, 24.0, float(n3[0]), 0.1,
-                                      format="%.1f")
+                                      format="%.1f", key=k("s_prev2"))
             eff = st.number_input("Sleep efficiency (%)", 0.0, 100.0,
                                   float(cur["sleep_efficiency_pct"]), 1.0, format="%.0f",
-                                  help=HOW["efficiency"])
+                                  help=HOW["efficiency"], key=k("eff"))
             section("Mood and stress", HOW["mood"], short=HOW_SHORT["mood"])
             c1, c2 = st.columns(2)
-            mood = c1.slider("Mood (1-5)", 1, 5, int(cur["mood"]))
-            stress = c2.slider("Stress (1-5)", 1, 5, int(cur["stress"]))
+            mood = c1.slider("Mood (1-5)", 1, 5, int(cur["mood"]), key=k("mood"))
+            stress = c2.slider("Stress (1-5)", 1, 5, int(cur["stress"]), key=k("stress"))
             section("Fatigue", HOW["fatigue"], short=HOW_SHORT["fatigue"])
             fat = st.select_slider("Fatigue (Samn-Perelli 1-7)", list(SAMN_PERELLI),
-                                   value=int(cur["fatigue_score"]), format_func=SAMN_PERELLI.get)
+                                   value=int(cur["fatigue_score"]), format_func=SAMN_PERELLI.get, key=k("fat"))
             section("Food and water", HOW["food"], short=HOW_SHORT["food"])
             food = cur.get("food_water_intake", {})
             c1, c2 = st.columns(2)
             meals = c1.selectbox("Meals (24 h)", MEALS,
                                  index=MEALS.index(food.get("meals", "normal"))
-                                 if food.get("meals", "normal") in MEALS else 0)
+                                 if food.get("meals", "normal") in MEALS else 0, key=k("meals"))
             water = c2.number_input("Water (L, 24 h)", 0.0, 10.0,
-                                    float(food.get("water_l_24h", 2.0)), 0.1, format="%.1f")
-            # stays at the bottom of the screen while the form is in view (ui/styles.css)
-            saved = st.form_submit_button("Save check-in", type="primary", key="save_checkin",
-                                          icon=":material/save:")
-        if saved:
+                                    float(food.get("water_l_24h", 2.0)), 0.1, format="%.1f",
+                                    key=k("water"))
             data = {**cur, "systolic_bp": sbp, "diastolic_bp": dbp, "blood_glucose": glu,
                     "sleep_last_night_h": s_last,
                     "sleep_last_3_nights_h": [s_prev2, s_prev, s_last],
                     "sleep_efficiency_pct": eff, "mood": mood, "stress": stress,
                     "fatigue_score": fat,
                     "food_water_intake": {**food, "meals": meals, "water_l_24h": water}}
-            cs.save(name, data)
+            # Nothing changed: Save looks disabled and does nothing. It stays clickable, since a
+            # typed value commits only when the field loses focus, i.e. on the click on Save
+            # itself; a truly disabled button would swallow that click.
+            dirty = changed(data, cur)
+            if not dirty:
+                st.html('<div data-testid="save-idle" style="display:none"></div><style>'
+                        + IDLE_SAVE_CSS + '</style>')
+            # stays at the bottom of the screen while the form is in view (ui/styles.css)
+            if st.button("Save check-in", type="primary", key="save_checkin",
+                         icon=":material/save:") and dirty:
+                cs.save(name, data)
+                st.rerun()                 # fields re-keyed to the saved values
 
     with right:
         section("Reaction time", "The mean of your responses is written to the check-in "
@@ -197,7 +250,10 @@ def main() -> None:
                        help="This check-in differs from the scenario example: the dashboard "
                             "forecasts it with the local profile instead of the cached "
                             "full-profile results.")
-            if st.button("Reset to example values"):
+            if actions.job("forecast", actions.COMPUTE_STALE_S):   # Run Forecast is working
+                st.caption("A forecast is running: Reset is back when it ends.")
+            elif st.button("Reset to example values", key="reset_checkin",
+                           icon=":material/restart_alt:"):
                 cs.reset(name)
                 # the component keeps returning its last result: mark it as used so the
                 # rerun does not write it back

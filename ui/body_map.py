@@ -328,10 +328,12 @@ _CSS = """
 :root { --green:%(green)s; --yellow:%(yellow)s; --red:%(red)s; --grey:%(grey)s;
   --cool:var(--sf-info); }
 * { box-sizing:border-box; }
-body { margin:0; background:var(--sf-panel); color:var(--sf-ink);
+body { margin:0; background:transparent; color:var(--sf-ink); overflow:hidden;
   font:13px/1.4 "Source Sans Pro","Segoe UI",system-ui,sans-serif; }
 #sf-body-map { position:relative; border:1px solid var(--sf-line); border-radius:10px;
-  padding:10px 12px; height:%(h)dpx; overflow:hidden; display:flex; flex-direction:column; }
+  background:var(--sf-panel);
+  padding:10px 12px; height:100vh; overflow:hidden; display:flex;   /* fills its frame */
+  flex-direction:column; }
 .top { display:flex; justify-content:space-between; align-items:center; }
 .h { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--sf-muted); }
 .chip { font:600 10px/1 ui-monospace,Menlo,monospace; letter-spacing:.12em; padding:4px 7px;
@@ -449,6 +451,8 @@ svg { position:absolute; inset:0; width:100%%; height:100%%; }
 [data-state="revealed"] .callout.fc[data-status="yellow"] .glyph { rx:1px; transform:rotate(45deg) scale(.85); }
 [data-state="revealed"] .callout.fc[data-status="red"] .glyph { rx:1px; }
 [data-state="revealed"] .callout.fc[data-status="grey"] .glyph { fill:transparent; stroke:var(--sf-muted); }
+/* narrow column (4-column dashboard at 1440 px): title and status chip on one line */
+@media (max-width: 320px) { .tap { display:none; } }
 /* radiation dose (operator D), below the stage */
 .dose { display:flex; align-items:center; gap:10px; margin-top:8px; }
 .dose .h { flex:none; }
@@ -460,7 +464,8 @@ svg { position:absolute; inset:0; width:100%%; height:100%%; }
 .limit { position:absolute; top:-2px; bottom:-2px; right:0; border-left:2px dashed var(--red); }
 .dose .v { flex:none; font:600 12px ui-monospace,Menlo,monospace; color:var(--sf-ink); }
 .small { font-size:11px; color:var(--sf-muted); line-height:1.35; margin-top:4px; }
-.pop { display:none; position:absolute; left:10px; right:10px; top:40px;
+.pop { display:none; position:absolute; left:10px; right:10px; top:40px; max-height:calc(100%% - 50px);
+  overflow-y:auto;
   background:var(--sf-panel-2); border:1px solid color-mix(in srgb, var(--cool) 45%%, transparent);
   border-radius:8px; padding:10px 12px; box-shadow:0 8px 30px rgba(0, 0, 0, .65); z-index:2; }
 .pop.open { display:block; }
@@ -488,6 +493,12 @@ function openPop(key) {
         ? s.forecast : 'Run the forecast to see this system.') + '</p>';
   pop.classList.add('open');
 }
+// a click anywhere else closes the popup: inside the figure, or on the page around it
+// (the frame loses focus then)
+document.addEventListener('click', e => {
+  if (!pop.contains(e.target) && !e.target.closest('[data-system]')) pop.classList.remove('open');
+});
+window.addEventListener('blur', () => pop.classList.remove('open'));
 document.querySelectorAll('[data-system]').forEach(el => {
   el.addEventListener('click', () => openPop(el.dataset.system));
   el.addEventListener('keydown', e => { if (e.key === 'Enter') openPop(el.dataset.system); });
@@ -505,7 +516,8 @@ if (root.dataset.state === 'play') {
 """
 
 
-def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -> str:
+def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0,
+             height: int | None = None) -> str:
     """Full iframe document. mode: idle (standby scan) | play (fast scan, reveal later) |
     revealed (systems in their risk colour)."""
     pal = ui_config.COLOR
@@ -550,7 +562,7 @@ def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -
     marker = ('<div data-testid="body-map-done" style="display:none">body-map-done</div>'
               if mode == "revealed" else "")
     beat = 60.0 / max(40.0, current.get("resting_hr", 70.0))
-    css = _CSS % {**pal, "h": HEIGHT_PX - 4, "t": TRANSITION_S, "beat": beat}
+    css = _CSS % {**pal, "h": (height or HEIGHT_PX) - 4, "t": TRANSITION_S, "beat": beat}
     js = _JS % {"info": theme.script_json(info), "t_ms": int(TRANSITION_S * 1000),
                 "reveal_ms": int(round(reveal_at_s * 1000))}
     beam = (f'<g class="beam"><rect x="100" y="-38" width="200" height="40" fill="url(#beam)" '
@@ -558,7 +570,7 @@ def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -
             f'<rect x="60" y="1.2" width="280" height="1.6" fill="url(#beamline)"/></g>')
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{theme.root_css()}{theme.tip_css()}{css}</style></head>
 <body><div id="sf-body-map" data-testid="body-map-figure" data-state="{mode}">
-<div class="top"><div class="h">Bio-scan · tap a system</div>
+<div class="top"><div class="h">Bio-scan<span class="tap"> · tap a system</span></div>
 <div class="chip"><span class="s-idle">STANDBY</span><span class="s-play">SCANNING</span><span class="s-done">SCAN COMPLETE</span></div></div>
 <div class="stage"><svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Body map"><defs>{_defs()}</defs>{_figure_svg()}{_vitals_svg(current)}{"".join(organs[k] for k in DRAW_ORDER)}{beam}{"".join(callouts)}</svg></div>
 <div class="dose" data-testid="dose-bar" data-status="{status["radiation"]["status"]}"
@@ -572,7 +584,8 @@ def html_doc(mode: str, status: dict, current: dict, reveal_at_s: float = 0.0) -
 
 # ---------------------------------------------------------------- Streamlit
 
-def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
+def show(static: dict, res: dict | None, shown: int, frames: list,
+         height: int | None = None) -> None:
     """Draw the body map for app.py's playback frame `shown` (once per script run: the
     frame then animates by itself; ui/live_frame.py swaps documents without a blank flash)."""
     playing = res is not None and 0 < shown < len(frames)
@@ -580,6 +593,6 @@ def show(static: dict, res: dict | None, shown: int, frames: list) -> None:
     fc = res["forecast"] if res else None
     doc = html_doc(mode, system_status(fc if mode != "idle" else None),
                    current_state(static["name"], static.get("checkin_json")),
-                   stage_times(frames)[0] if mode == "play" else 0.0)
+                   stage_times(frames)[0] if mode == "play" else 0.0, height=height)
     st.html('<div data-testid="body-map" style="display:none">body-map</div>')
-    live_frame.show(doc, HEIGHT_PX, key="body_map")
+    live_frame.show(doc, height or HEIGHT_PX, key="body_map")

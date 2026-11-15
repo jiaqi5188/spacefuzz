@@ -1,4 +1,4 @@
-"""Small helpers shared by app.py, ui/ and pages/: escaping, number and time formats, and
+"""Small helpers shared by app.py, ui/ and page_files/: escaping, number and time formats, and
 the playback schedule every animated panel reads."""
 import html
 import re
@@ -99,3 +99,12 @@ NEUTRAL_NAP = "plan a nap before demanding tasks (the adjusted plan sets the tim
 
 def neutral_nap(text: str) -> str:
     return NAP_ADVICE.sub(NEUTRAL_NAP, text)
+
+
+def loading_html(label: str = "Forecasting", lines: int = 2) -> str:
+    """A panel's loading state while Run Forecast computes or replays: shimmering grey bars and
+    a short label (CSS .sf-loading in ui/styles.css)."""
+    bars = "".join(f'<div class="bar{" short" if i == lines - 1 else ""}"></div>'
+                   for i in range(lines))
+    return (f'<div class="sf-loading" data-testid="loading">{bars}'
+            f'<div class="lbl">{esc(label)}…</div></div>')

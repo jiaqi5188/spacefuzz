@@ -73,6 +73,11 @@
 .st-key-run_forecast button p, .st-key-run_midday button p { font-size:15px; }
 .st-key-save_checkin { position:sticky; bottom:12px; z-index:5; }
 .st-key-save_checkin button { min-height:44px; min-width:200px; box-shadow:0 6px 24px rgba(0, 0, 0, .6); }
+/* reset: amber, so the way back to the example is easy to spot */
+.st-key-reset_checkin button { border-color:var(--sf-yellow); color:var(--sf-yellow);
+  background:color-mix(in srgb, var(--sf-yellow) 12%, transparent); }
+.st-key-reset_checkin button:hover { border-color:var(--sf-yellow); color:var(--sf-bg);
+  background:var(--sf-yellow); }
 [data-testid^="stBaseButton-primary"]:disabled, [data-testid^="stBaseButton-primary"]:disabled:hover {
   background: color-mix(in srgb, var(--sf-green) 22%, var(--sf-panel)); opacity:1; box-shadow:none;
   border-color: color-mix(in srgb, var(--sf-green) 55%, transparent); cursor: progress; }
@@ -142,7 +147,10 @@
 [data-testid="indicators"] { container-type:inline-size; }
 .sf-ind-name { white-space:nowrap; }
 .sf-ind-val { white-space:nowrap; text-align:right; }
-@container (max-width: 340px) { .sf-ind .base { display:block; } }
+/* narrow: the base value drops to a second line, and the "example" tag with it, under the
+   name (it used to push the value out of the panel) */
+@container (max-width: 340px) { .sf-ind .base { display:block; }
+  .sf-ind .sf-tag { display:block; width:fit-content; margin:3px 0 0 18px; } }
 /* Streamlit's own help icon ("?") drawn as our (i), so one mark means "more here" */
 [data-testid="stTooltipIcon"] svg { display:none !important; }
 [data-testid="stTooltipIcon"] button::after { content:"ⓘ"; color:var(--sf-muted);
@@ -203,9 +211,22 @@
 .sf-status { font-size:12px; color:var(--sf-muted); height:18px; line-height:18px;
   margin:-4px 0 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sf-pending { font-size:13px; color:var(--sf-muted); }
+/* loading state of a panel while the forecast runs (ui/common.loading_html) */
+.sf-loading { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
+.sf-loading .bar { height:10px; border-radius:5px; width:100%;
+  background:linear-gradient(90deg, var(--sf-grid) 0%, var(--sf-line-strong) 50%, var(--sf-grid) 100%);
+  background-size:200% 100%; animation:sf-shimmer 1.4s ease-in-out infinite; }
+.sf-loading .bar.short { width:60%; }
+.sf-loading .lbl { font-size:12px; color:var(--sf-muted); }
+@keyframes sf-shimmer { 0% { background-position:100% 0; } 100% { background-position:-100% 0; } }
 .sf-chart-slot { min-height:400px; display:flex; align-items:center; justify-content:center;
   border:1px dashed var(--sf-line); border-radius:var(--sf-radius); }
 .sf-chart-slot.stacked { min-height:810px; }
+/* the HUD's slot before the forecast: same dashed frame as the charts, at the visor's height */
+.sf-hud-slot { display:flex; align-items:center; justify-content:center;
+  border:1px dashed var(--sf-line); border-radius:var(--sf-radius); }
+/* the visor's frame as a block: an inline iframe adds a ~8px line gap the slot does not have */
+.st-key-hud iframe, .st-key-midday_board iframe { display:block; }
 /* the one thing to press first: a slow green halo until the first forecast */
 @keyframes sf-call { 0%,100% { box-shadow:0 0 0 0 var(--sf-green-glow); }
                      50% { box-shadow:0 0 18px 4px var(--sf-green-glow); } }

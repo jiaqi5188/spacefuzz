@@ -17,11 +17,13 @@ from spacefuzz.fuzzing import midday
 from spacefuzz.core import plan as pl
 import ui_config
 from ui import actions, body_map, checkin_store, live_frame, plan_board, theme
-from ui.common import brief_html, esc, illustrative_badge, no_change_text, tip
+from ui.common import brief_html, esc, illustrative_badge, loading_html, no_change_text, tip
 
 CUT = ui_config.MIDDAY_CHECK_MIN
 RUN = "midday"                     # ui/actions.py job name
 PLANS_DIR = Path(__file__).resolve().parents[1] / "data" / "plans"
+H = ui_config.MIDDAY_HEIGHTS
+BOARD_H = ui_config.BOARD_HEIGHT["wide"]
 
 
 
@@ -57,7 +59,8 @@ def record_html(r: dict) -> str:
         f'{tip("Recorded after the fact and reported to the flight surgeon.")}</div>'
         for v in r["morning_violations"])
     body = rows or "<div>Nothing before 14:00 breaks a rule.</div>"
-    return (f'<div class="sf-panel" data-testid="midday-record" style="opacity:.85">'
+    return (f'<div class="sf-panel" data-testid="midday-record" style="height:{H["record"]}px;'
+            f'overflow-y:auto;opacity:.85">'
             f'<div class="sf-h">Already happened · before {esc(r["cutoff"])}'
             f'{tip("A record, not a forecast: only what can still happen is forecast.")}</div>'
             f'{body}</div>')
@@ -73,13 +76,22 @@ def risk_html(r: dict) -> str:
         f"<div>{esc(no_change_text(still_red, 'afternoon'))}</div>"
     more = (f"{r['candidates']} afternoon candidates screened; results: {r['profile']} profile."
             + (f" Remaining afternoon risk: {rest}." if rest else ""))
-    return (f'<div class="sf-panel" data-testid="midday-risk"><div class="sf-h">Afternoon risk '
+    return (f'<div class="sf-panel" data-testid="midday-risk" style="height:{H["risk"]}px;'
+            f'overflow-y:auto"><div class="sf-h">Afternoon risk '
             f'· from {esc(r["cutoff"])}{tip(more)}</div><div style="font-size:36px;font-weight:700">'
             f'<span style="color:var(--sf-{b["status"]})">{esc(b["text"])}</span> → '
             f'<span style="color:var(--sf-{a["status"]})">{esc(a["text"])} '
             f'{esc(r["rating_after"])}</span></div><div>{esc(b["chip"])}</div>'
             f'<div>{esc(a["chip"])}</div><div class="sf-h" style="margin-top:8px">Changes'
             f'{tip("Afternoon only: the morning cannot change any more.")}</div>{changes}</div>')
+
+
+def slot_html(testid: str, height: int, idle: str, busy: str | None, panel: bool = True) -> str:
+    """A result's place before it exists, at its height: a note, or loading while running."""
+    inner = loading_html(busy, 2) if busy else esc(idle)
+    cls = "sf-panel sf-pending" if panel else "sf-pending sf-hud-slot"
+    return (f'<div class="{cls}" data-testid="{testid}" style="height:{height}px">'
+            f'{inner}</div>')
 
 
 def main() -> None:
@@ -98,7 +110,7 @@ def main() -> None:
                 "on the dashboard.")
         return
 
-    left, right = st.columns([2, 3], gap="large")
+    left, right = st.columns([2, 3], gap="small")
     with left:
         prompt = morning_prompt(name)
         st.html(f'<div class="sf-panel"><div class="sf-h">Re-measure first</div>'
@@ -118,6 +130,10 @@ def main() -> None:
         actions.button(st, "Run midday forecast", "Running midday forecast...", RUN,
                        job is not None, "run_midday",       # value read at click time
                        lambda: {"run": f"{name}|{st.session_state['midday_sleep']:g}"})
+        if job:                            # a rough %, counted up by the browser
+            example_run = job.get("run") == f"{name}|{example:g}"
+            est = ui_config.MIDDAY_ESTIMATE_S["cached" if example_run else "edited"]
+            st.html(actions.compute_css("run_midday", est, 70, time.time() - job.get("t0", job["t"])))
         status = ("Re-forecasting the afternoon..." + tip("Cached for the example input; "
                                                            "another value takes a few minutes.")
                   if job else "Enter the wristband value, then run.")
@@ -125,11 +141,21 @@ def main() -> None:
         actions.show_error(st)             # only after a failed run
         record_slot = st.empty()           # "Already happened" goes here, under the button
     with right:
+        risk_slot, board_slot = st.empty(), st.empty()
+    # every result has its place, at its height, before it exists: nothing pops in
+    record_slot.html(slot_html("midday-record-slot", H["record"],
+                               f"What already happened before {pl.clock(CUT)} appears here.",
+                               job and "Reading the morning record"))
+    risk_slot.html(slot_html("midday-risk-slot", H["risk"],
+                             "The afternoon forecast appears here.",
+                             job and "Re-forecasting the afternoon"))
+    board_slot.html(slot_html("midday-board-slot", BOARD_H - 4, "The adjusted afternoon plan "
+                              "appears here.", job and "Adjusting the afternoon", panel=False))
+    with right:
         if job:
             st.session_state["midday_shown"] = job["run"]
         ran = st.session_state.get("midday_shown")
         if not ran or not ran.startswith(name + "|"):
-            st.caption("The afternoon forecast appears here.")
             return
         try:
             r = result_for(name, float(ran.split("|")[1]))
@@ -139,18 +165,23 @@ def main() -> None:
                    "cache yet: open the Dashboard, press Run Forecast, then come back.")
             if job:
                 actions.fail(msg)          # unlocks the button; shown under it on the rerun
-            st.info(msg)
+            risk_slot.info(msg)
             return
+        if job:                            # computed: run on to 100 % with the board's slide
+            done = actions.eased_pct(time.time() - job.get("t0", job["t"]), est, 70)
+            st.html(actions.finish_css("run_midday", done,
+                                       (1.2 + ui_config.BOARD_S) * ui_config.ANIM_SCALE))
         record_slot.html(record_html(r))   # left column: balances the two columns
-        st.html(risk_html(r))
+        risk_slot.html(risk_html(r))
         blocks = plan_board.match_tasks(r["plan_before"], r["plan_after"])
         risk = plan_board.midday_risk_states(r)
         f_s, a_s = 0.3 * ui_config.ANIM_SCALE, 1.2 * ui_config.ANIM_SCALE
         doc = plan_board.html_doc("play" if job else "final", blocks, risk,
                                   r["plan_before"].get("events", []), forecast_s=f_s,
                                   adjust_s=a_s, cutoff_min=CUT,
-                                  height=ui_config.BOARD_HEIGHT["wide"])
-        live_frame.show(doc, ui_config.BOARD_HEIGHT["wide"], key="midday_board")
+                                  height=BOARD_H)
+        with board_slot.container():
+            live_frame.show(doc, BOARD_H, key="midday_board")
         st.html('<div data-testid="midday-done" style="display:none">midday-done</div>')
     if job:                       # let the board finish its slide, then unlock the button
         time.sleep(a_s + ui_config.BOARD_S * ui_config.ANIM_SCALE)

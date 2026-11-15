@@ -82,7 +82,7 @@ def test_no_module_imports_an_llm_or_http_client():
     import re
     bad = re.compile(r"^\s*(import|from)\s+(openai|anthropic|requests|httpx|urllib\.request)\b",
                      re.M)
-    files = [*ROOT.glob("*.py"), *(ROOT / "ui").glob("*.py"), *(ROOT / "pages").glob("*.py"),
+    files = [*ROOT.glob("*.py"), *(ROOT / "ui").glob("*.py"), *(ROOT / "page_files").glob("*.py"),
              *(ROOT / "spacefuzz").rglob("*.py")]
     # ui/assist.py is the one exception: the optional AI hint imports the client inside a
     # function, only with a key set (tests/test_assist.py checks that).
@@ -302,7 +302,7 @@ PAGE_VALUES = s.fixed_dictionaries({
 @SLOW
 @given(PAGE_VALUES)
 def test_the_check_in_page_takes_extreme_entries(values):
-    at = AppTest.from_file(str(ROOT / "pages" / "1_Morning_check-in.py"), default_timeout=30)
+    at = AppTest.from_file(str(ROOT / "page_files" / "1_Morning_check-in.py"), default_timeout=30)
     at.run()
     for label, v in values.items():
         next(n for n in at.number_input if n.label == label).set_value(v)

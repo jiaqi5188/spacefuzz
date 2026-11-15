@@ -38,11 +38,11 @@ def test_run_forecast_locks_while_it_runs(monkeypatch):
     at = dashboard()
     b = button(at, "Run Forecast")
     assert not b.disabled
-    assert "Start here" in page_html(at)                     # what to press first
+    assert 'data-state="start"' in page_html(at)                        # what to press first
     click_and_hold(at, "Run Forecast", monkeypatch)
     busy = button(at, "Running forecast...")
     assert busy.disabled                                     # a second click does nothing
-    assert "Replaying the run" in page_html(at)
+    assert 'data-state="replaying"' in page_html(at)
     assert at.sidebar.selectbox[0].disabled                  # no scenario switch mid-run
     at.run()                                                 # the run finishes, unlocks
     assert not button(at, "Run Forecast").disabled

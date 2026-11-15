@@ -1,4 +1,4 @@
-"""Tests for pages/3_Midday_check.py: re-measure sleep at 14:00, afternoon risk only."""
+"""Tests for page_files/3_Midday_check.py: re-measure sleep at 14:00, afternoon risk only."""
 import os
 from pathlib import Path
 
@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 import ui_config  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGE = ROOT / "pages" / "3_Midday_check.py"
+PAGE = ROOT / "page_files" / "3_Midday_check.py"
 MAIN = "main_sleep_debt_eva"
 T = lambda s, d, k: {"start": s, "duration_h": d, "type": k, "kind": "task"}
 BEFORE = {"date": "Mission Day 147", "tasks": [T("10:00", 1.5, "sleep"), T("11:30", 2.25, "EVA"),
@@ -160,3 +160,37 @@ def test_sleep_input_shows_one_decimal():
     at = page()
     n = next(x for x in at.number_input if x.label.startswith("Last night's sleep"))
     assert n.proto.format == "%.1f"
+
+
+def test_slots_hold_the_result_heights_before_the_run():
+    """Before the run every result panel already has its place: nothing pops in (user, 11/15)."""
+    at = page()
+    t = text(at)
+    h = ui_config.MIDDAY_HEIGHTS
+    for slot, px in (("midday-record-slot", h["record"]), ("midday-risk-slot", h["risk"]),
+                     ("midday-board-slot", ui_config.BOARD_HEIGHT["wide"] - 4)):  # drawn box
+        assert f'data-testid="{slot}"' in t and f"height:{px}px" in t, slot
+    assert 'data-testid="loading"' not in t                       # idle, not loading
+
+
+def test_result_panels_keep_the_slot_heights():
+    at = page({"midday_results": {f"{MAIN}|5.9": RESULT}})
+    next(b for b in at.button if b.label == "Run midday forecast").click().run()
+    t = text(at)
+    h = ui_config.MIDDAY_HEIGHTS
+    assert f'data-testid="midday-record" style="height:{h["record"]}px' in t
+    assert f'data-testid="midday-risk" style="height:{h["risk"]}px' in t
+    assert not [s for s in ("record", "risk", "board") if f"midday-{s}-slot" in t]  # replaced
+
+
+def test_busy_midday_button_shows_a_rough_percentage(monkeypatch):
+    from ui import actions
+    monkeypatch.setattr(actions, "finish", lambda: None)        # stay busy: the run's own view
+    at = page({"midday_results": {f"{MAIN}|5.9": RESULT}})
+    import time as _t
+    at.session_state["_sf_job"] = {"name": "midday", "t": _t.time(), "t0": _t.time(),
+                                   "run": f"{MAIN}|5.9"}
+    at.run()
+    assert 'data-testid="run_midday-progress"' in text(at)
+    idle = page()
+    assert "run_midday-progress" not in text(idle)
