@@ -186,3 +186,14 @@ def test_header_keeps_one_height_so_the_timeline_never_moves():
     doc = pb.html_doc("idle", pb.match_tasks(ORIG, None), None, [])
     rule = re.search(r"\.top \{([^}]*)\}", doc).group(1)
     assert f"height:{pb.TOP_PX}px" in rule and "flex:none" in rule
+
+
+def test_narrow_board_tightens_the_legend():
+    """Menu open on a 14-inch screen: the 4th column narrows, the legend wraps to four lines
+    and pushed the "Safer" line out of the board (user, 11/15). Narrow boards use a tighter
+    legend; the wide board is unchanged."""
+    import re
+    css = pb._CSS
+    narrow = re.search(r"@media \(max-width: 400px\) \{ \.legend \{([^}]*)\}", css)
+    assert narrow and "font-size:11px" in narrow.group(1) and "line-height:1.3" in narrow.group(1)
+    assert re.search(r"@media \(max-width: 400px\) \{[^@]*\.safer \{[^}]*font-size:11px", css)

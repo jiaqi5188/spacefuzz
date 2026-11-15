@@ -9,6 +9,7 @@ timeline. Key elements and the end of every animation carry a data-testid
 """
 import dataclasses
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -161,6 +162,41 @@ def load_results(name: str, profile_name: str | None = None,
             "adjust": adj, "edited": bool(checkin_json), "checkin_json": checkin_json}
 
 
+_INFLIGHT: dict = {}                # input -> {"done": Event, "result" | "error"}
+_INFLIGHT_LOCK = threading.Lock()
+
+
+def compute_once(name: str, profile_name: str | None = None,
+                 checkin_json: str | None = None) -> dict:
+    """load_results(), one computation per input at a time, shared by every session of this
+    server. With fastReruns a page switch during a long computation starts a new script run
+    while the old one cannot stop (pure Python: nothing to interrupt); the new run used to
+    start the same computation again, and the copies shared one core (an edited check-in
+    ran 25x slower, user report 11/15). A later caller now waits for the running one and
+    gets its result (or its error); finished results come from the engine cache as before."""
+    k = (name, profile_name, checkin_json)
+    with _INFLIGHT_LOCK:
+        job = _INFLIGHT.get(k)
+        owner = job is None
+        if owner:
+            job = _INFLIGHT[k] = {"done": threading.Event()}
+    if not owner:
+        job["done"].wait()
+        if "error" in job:
+            raise job["error"]
+        return job["result"]
+    try:
+        job["result"] = load_results(name, profile_name, checkin_json)
+        return job["result"]
+    except Exception as e:  # noqa: BLE001 - handed to the waiting callers, then raised
+        job["error"] = e
+        raise
+    finally:
+        with _INFLIGHT_LOCK:
+            _INFLIGHT.pop(k, None)    # finished or failed: the next request starts afresh
+        job["done"].set()
+
+
 # ---------------------------------------------------------------- timeline
 
 def timeline(res: dict) -> list[dict]:
@@ -243,8 +279,14 @@ CSS = """
 .sf-card { background:var(--sf-panel); border:1px solid var(--sf-line); border-left:4px solid var(--c);
   border-radius:8px; padding:8px 12px; font-size:13px; line-height:1.45; }
 .sf-chain { color:var(--sf-ink); }
-.sf-fold { margin-top:8px; }
-.sf-fold summary { cursor:pointer; font-size:12px; color:var(--sf-muted); }
+/* advice panel narrowed by the open menu: tighter cards, so the last one is not cut */
+.sf-advice { container-type:inline-size; }
+@container (max-width: 380px) { .sf-cards { gap:6px; }
+  .sf-card { padding:6px 10px; font-size:12px; line-height:1.35; } }
+.sf-fold { margin-top:4px; }
+.sf-fold summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--sf-green); }  /* easy to find */
+.sf-fold summary::marker { color:var(--sf-green); }
+.sf-fold summary:hover { filter:brightness(1.25); }
 /* the folded tables open and close smoothly, like the expanders (Chrome 131+; elsewhere
    they simply open) */
 .sf-fold { interpolate-size:allow-keywords; }
@@ -268,6 +310,7 @@ CSS = """
 .sf-compare-in { margin-bottom:auto; }
 .sf-compare-risk { font-size:34px; white-space:nowrap; }
 @container (max-width: 360px) { .sf-compare-risk { font-size:24px; } }   /* 4-column layout */
+@container (max-width: 260px) { .sf-compare-in { line-height:1.45; } }   /* menu open: fits */
 [data-testid="advice-cards"] { min-height:300px; align-items:start; }
 </style>
 """
@@ -929,7 +972,7 @@ def main(view: str | None = None) -> None:
 
     if job and not playing:                       # step 1: compute (or read the cache)
         try:
-            results[key] = load_results(name, ui_config.app_profile(), static["checkin_json"])
+            results[key] = compute_once(name, ui_config.app_profile(), static["checkin_json"])
         except Exception as e:  # noqa: BLE001 - shown to the user, button unlocked
             actions.fail(f"Forecast failed: {e}. Press Run Forecast to try again.")
         actions.advance()

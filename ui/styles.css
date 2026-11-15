@@ -71,7 +71,7 @@
 /* the main actions are larger; while one runs it stays visible but locked */
 .st-key-run_forecast button, .st-key-run_midday button { min-height:44px; min-width:230px; padding:0 22px; }
 .st-key-run_forecast button p, .st-key-run_midday button p { font-size:15px; }
-.st-key-save_checkin { position:sticky; bottom:12px; z-index:5; }
+.st-key-save_checkin { position:sticky; bottom:12px; z-index:5; margin-top:12px; margin-bottom:48px; }  /* room below at the end */
 .st-key-save_checkin button { min-height:44px; min-width:200px; box-shadow:0 6px 24px rgba(0, 0, 0, .6); }
 /* reset: amber, so the way back to the example is easy to spot */
 .st-key-reset_checkin button { border-color:var(--sf-yellow); color:var(--sf-yellow);

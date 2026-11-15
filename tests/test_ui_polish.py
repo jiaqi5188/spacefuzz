@@ -475,3 +475,44 @@ def test_round_seven_details():
     css = actions.progress_css("run_midday", [(0, 0), (2.0, 60), (5.0, 99)], elapsed=1.0)
     assert ".st-key-run_midday button" in css and "40% { --sf-pct: 60; }" in css
     assert "5.0s linear -1.0s" in css and "<integer>" not in css   # starts 1 s in
+
+
+def test_folded_table_titles_are_easy_to_find():
+    """"Adjusted plan table" was small and grey at the foot of the panel (user, 11/15)."""
+    rule = re.search(r"\.sf-fold summary \{([^}]*)\}", app.CSS).group(1)
+    assert "font-size:13px" in rule and "var(--sf-green)" in rule and "font-weight:600" in rule
+
+
+def test_compare_panel_tightens_lines_when_the_menu_narrows_it():
+    """Menu open on a 14-inch screen: the before/after panel is about 225 px wide and its
+    last line ("Adjusted plan table") fell 12 px below the panel; tighter lines there only."""
+    assert re.search(r"@container \(max-width: 260px\) \{ \.sf-compare-in \{ line-height:1\.45", app.CSS)
+
+
+def test_streamlit_does_not_watch_source_files():
+    """After every script run Streamlit rescans all loaded modules for its file watcher, on
+    the server's event loop; with pandas, scipy, plotly and pyarrow loaded (and no watchdog,
+    so polling) that took 7-24 s and held back page switches during a forecast (user, 11/15:
+    switching to Reference pages lagged). No watching: switches take 0.2 s. Code changes
+    need a restart, as they already did (app is imported as a module)."""
+    cfg = (ROOT / ".streamlit" / "config.toml").read_text()
+    assert re.search(r'^fileWatcherType = "none"', cfg, re.M)
+
+
+def test_round_ten_layout_details():
+    """User review 11/15 (video script): the engine heatmap legend sat on its x-axis title; with
+    the menu open the trend ticks turned vertical and the last advice card was cut; Save on the
+    check-in page had no room under it; the flare label on the NASA Data radiation chart sat on
+    the red event band."""
+    from tests.test_app import fake_results
+    from ui import charts
+    hm = charts.heatmap_figure(fake_results(), height=330)
+    assert hm.layout.legend.yref == "container" and hm.layout.legend.yanchor == "bottom"
+    s = charts.trend_series(MAIN, "sleep")
+    assert charts.trend_figure(s).layout.xaxis.tickangle == 0
+    assert re.search(r"@container \(max-width: \d+px\) \{ \.sf-cards \{[^}]*\}\s*\.sf-card \{[^}]*line-height",
+                     app.CSS)
+    css = (ROOT / "ui" / "styles.css").read_text()
+    assert re.search(r"\.st-key-save_checkin \{[^}]*margin-bottom:\d+px", css)
+    src = (ROOT / "ui" / "data_page.py").read_text()
+    assert 'text=f"{f[\'official_class\']} flare (GOES)", xanchor="right"' in src

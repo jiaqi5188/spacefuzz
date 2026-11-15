@@ -208,3 +208,16 @@ def test_trend_tabs_switch_to_short_labels_when_the_column_is_narrow():
     for i, k in enumerate(charts.TRENDS, 1):
         assert f'button:nth-of-type({i}) p::after {{ content:"{charts.TRENDS_SHORT[k]}"' in css
     assert "text-overflow" not in css
+
+
+def test_trend_tabs_have_a_tighter_tier_for_a_very_narrow_column():
+    """Menu open on a 14-inch screen: the tab row is about 260 px and even the short words
+    were cut ("Hear", "Glucos"; user, 11/15). Below TABS_TINY_BELOW_PX: shorter words, a
+    smaller font and less padding, so every label shows whole."""
+    css = charts.trend_tab_css()
+    assert set(charts.TRENDS_TINY) == set(charts.TRENDS)
+    assert charts.TABS_TINY_BELOW_PX < charts.TABS_SHORT_BELOW_PX
+    tiny = css[css.index(f"@container (max-width: {charts.TABS_TINY_BELOW_PX}px)"):]
+    for i, k in enumerate(charts.TRENDS, 1):
+        assert f'button:nth-of-type({i}) p::after {{ content:"{charts.TRENDS_TINY[k]}"' in tiny
+    assert "padding" in tiny

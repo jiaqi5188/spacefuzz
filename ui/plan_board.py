@@ -251,6 +251,10 @@ body { margin:0; background:transparent; color:var(--sf-ink); overflow:hidden;
 [data-state="final"] .legend, .done .legend { opacity:1; }
 .safer { margin-top:4px; font-size:12px; color:var(--sf-muted); opacity:0; transition: opacity .4s; }
 [data-state="final"] .safer, .done .safer { opacity:1; }
+/* narrow board (menu open on a 14-inch screen): the legend wraps to four lines; a tighter
+   legend keeps the "Safer" line inside the board */
+@media (max-width: 400px) { .legend { margin-top:3px; gap:0 10px; font-size:11px; line-height:1.3; }
+  .safer { margin-top:2px; font-size:11px; } }
 .idle { color:var(--sf-muted); font-size:12px; }
 .past { position:absolute; left:0; top:0; bottom:14px; background:color-mix(in srgb,
   var(--sf-bg) 62%%, transparent); border-right:0; z-index:2; pointer-events:none; }

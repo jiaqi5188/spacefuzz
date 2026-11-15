@@ -1,11 +1,15 @@
-"""Record the demo shots from the running SpaceFuzz app (app.py) with Playwright.
+"""Record the website shots of the demo video with Playwright, from the running app (app.py).
 
-Shots follow the 30-second storyboard (docs/manual_v7.md, 11/15 "video"): the top bar, the
-forecast, the plan adjustment, the crash-boundary heatmap and the midday check. Each shot
-waits on the app's top-level completion markers (data-testid forecast-done, playback-done,
-charts-done, midday-done) instead of fixed sleeps, and never reaches into the animated
-panels (they sit one iframe deeper, inside ui/live_frame); only the deliberate "camera
-hold" after a shot is timed. The session is recorded once, then cut into
+Shots follow the storyboard rewritten on 11/15 (docs/manual_v7.md, 11/15 "video"); the two
+photos and the end card are added when the video is assembled, not recorded here:
+  dashboard_idle      0-8 s     idle dashboard (menu closed), then Run Forecast is clicked
+  dashboard_forecast  8-16.5 s  fuzz log and body-map scan -> 21.0% HIGH, cardiovascular red
+  dashboard_adjust    16.5-19 s  the same dashboard on to the adjusted plan, 21.0% -> 4.9%
+  surgeon             16.5-21.5 s  flight surgeon screen, ?view=surgeon&autoplay=1, to the result
+  engine              19.5-22 s    engine screen, ?view=engine&autoplay=1, fuzz log filled
+Each shot waits on the app's top-level markers (forecast-done, playback-done) instead of fixed
+sleeps and never reaches into the animated panels (one iframe deeper, inside ui/live_frame);
+only the "camera hold" after a shot is timed. The session is recorded once, then cut into
 video/clips/<shot>.mp4 (git-ignored) with the time windows in video/clips/shots.json.
 
 Before recording, one unrecorded session warms the server up (the first forecast after a
@@ -13,8 +17,8 @@ server start loads the libraries and data, about 20 s).
 
 Usage:  python video/record.py [--url http://localhost:8501] [--app app.py]
 If nothing is listening at --url, the app is started automatically at the demo pace
-(SPACEFUZZ_PACE=demo). If you start it yourself, use:
-    SPACEFUZZ_PACE=demo .venv/bin/streamlit run app.py --server.port 8501
+(SPACEFUZZ_PACE=demo). The 11/15 clips were recorded at the everyday "fast" pace (an app
+started without SPACEFUZZ_PACE): the forecast then fits the 8.5 s of its segment.
 """
 from __future__ import annotations
 
@@ -35,8 +39,11 @@ RAW_DIR = ROOT / "video" / "build" / "raw"
 CLIPS_DIR = ROOT / "video" / "clips"
 DEFAULT_APP = "app.py"
 SCENARIO = "main_sleep_debt_eva"          # the video tells the main story only
+# the page at 1512x850 (the 14-inch layout the UI was tuned for, 16:9), 2x pixel density,
+# scaled into the 1920x1080 video (manual_v7 11/15 video): fuller screens, larger text
+PAGE_W, PAGE_H = 1512, 850
 WIDTH, HEIGHT, FPS = 1920, 1080, 30
-DEVICE_SCALE_FACTOR = 2  # render at 2x, downscaled into the 1080p video for crisper text
+DEVICE_SCALE_FACTOR = 2
 ACTION_TIMEOUT_MS = 120_000               # a replay at the demo pace takes about 30 s
 SERVER_START_TIMEOUT_S = 60
 
@@ -47,46 +54,56 @@ class Shot:
     action: Callable  # (page, url) -> None, runs while the shot is "rolling"
 
 
-def shot_topbar(page, url) -> None:
-    """0-6 s: the idle dashboard (Mars Base, Cmdr. L. Tan, Earth delay 20 min)."""
-    page.wait_for_timeout(6000)
+IDLE_HOLD_MS = 4000       # idle dashboard on screen before the click (the photo comes first)
+RESULT_HOLD_MS = 2000     # camera hold on a result
 
 
-def shot_forecast(page, url) -> None:
-    """6-13 s: Run Forecast -> fuzz log, body map scanning -> 21.0% HIGH."""
+def shot_dashboard_idle(page, url) -> None:
+    """0-8 s (after the photo): the idle dashboard, menu closed, then Run Forecast."""
+    page.wait_for_timeout(IDLE_HOLD_MS)
     page.get_by_role("button", name="Run Forecast").click()
+
+
+def shot_dashboard_forecast(page, url) -> None:
+    """8-16.5 s: fuzz log and body-map scan -> 21.0% HIGH, the heart turns red."""
     page.get_by_test_id("forecast-done").wait_for(state="attached")
-    page.wait_for_timeout(1500)  # camera hold on the risk number and the red heart
+    page.wait_for_timeout(RESULT_HOLD_MS)
 
 
-def shot_adjust(page, url) -> None:
-    """16-22 s: the plan board slides to the adjusted plan, the risk rolls to 4.9%."""
+def shot_dashboard_adjust(page, url) -> None:
+    """16.5-19 s: the same dashboard goes on: plan board slides, risk rolls 21.0% -> 4.9%,
+    the advice and before/after fill in; ends on the final picture (button unlocked)."""
     page.get_by_test_id("playback-done").wait_for(state="attached")
-    page.wait_for_timeout(1500)  # camera hold on the adjusted plan
+    page.get_by_role("button", name="Run Forecast", exact=True).wait_for(state="visible")
+    page.wait_for_timeout(RESULT_HOLD_MS)
 
 
-def shot_heatmap(page, url) -> None:
-    """13-16 s: the crash-boundary heatmap ("15 min less sleep turns this red")."""
-    page.get_by_test_id("charts-done").wait_for(state="attached")
-    page.locator(".st-key-heatmap_chart").scroll_into_view_if_needed()
-    page.wait_for_timeout(3000)
+def _view(page, url: str, view: str) -> None:
+    """A role screen on its own, playing once by itself (?autoplay=1), to its final picture."""
+    page.goto(f"{url.rstrip('/')}/?scenario={SCENARIO}&view={view}&autoplay=1")
+    page.get_by_test_id("playback-done").wait_for(state="attached")
+    # the button unlocks (and the engine screen's charts appear) once the board has rolled:
+    # end on that clean final picture, not on "Running forecast... 92%"
+    page.get_by_role("button", name="Run Forecast", exact=True).wait_for(state="visible")
+    page.wait_for_timeout(RESULT_HOLD_MS)
 
 
-def shot_midday(page, url) -> None:
-    """22-25 s: the midday check, 100% CRITICAL -> 4.9% (afternoon EVA moved to 18:00)."""
-    page.goto(url.rstrip("/") + "/Midday_check")
-    page.get_by_role("button", name="Run midday forecast").click()
-    page.get_by_test_id("midday-done").wait_for(state="attached")
-    page.get_by_role("button", name="Run midday forecast").wait_for(state="visible")  # unlocked
-    page.wait_for_timeout(1500)
+def shot_surgeon(page, url) -> None:
+    """16.5-21.5 s: the flight surgeon screen, 21.0% -> 4.9% after re-planning, re-tested."""
+    _view(page, url, "surgeon")      # view=surgeon&autoplay=1
+
+
+def shot_engine(page, url) -> None:
+    """19.5-22 s: the engine screen with the fuzz log filled (one engine, several screens)."""
+    _view(page, url, "engine")       # view=engine&autoplay=1
 
 
 SHOTS = [
-    Shot("topbar", shot_topbar),
-    Shot("forecast", shot_forecast),
-    Shot("adjust", shot_adjust),
-    Shot("heatmap", shot_heatmap),
-    Shot("midday", shot_midday),
+    Shot("dashboard_idle", shot_dashboard_idle),
+    Shot("dashboard_forecast", shot_dashboard_forecast),
+    Shot("dashboard_adjust", shot_dashboard_adjust),
+    Shot("surgeon", shot_surgeon),
+    Shot("engine", shot_engine),
 ]
 
 
@@ -110,7 +127,7 @@ def start_server(app: Path, port: int) -> subprocess.Popen:
 def cut_clip(src: Path, start: float, end: float, out: Path) -> None:
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(src),
-         "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-vf", f"fps={FPS}",
+         "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-vf", f"fps={FPS},scale={WIDTH}:{HEIGHT}:flags=lanczos",
          "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
          "-an", str(out)],
         check=True,
@@ -119,10 +136,12 @@ def cut_clip(src: Path, start: float, end: float, out: Path) -> None:
 
 def context_options(raw_dir: Path) -> dict:
     return {
-        "viewport": {"width": WIDTH, "height": HEIGHT},
+        "viewport": {"width": PAGE_W, "height": PAGE_H},
         "device_scale_factor": DEVICE_SCALE_FACTOR,
         "record_video_dir": str(raw_dir),
-        "record_video_size": {"width": WIDTH, "height": HEIGHT},
+        # Playwright records the page at its CSS size and pads (never scales) a larger frame,
+        # so the video is the page size; cut_clip scales it to 1920x1080
+        "record_video_size": {"width": PAGE_W, "height": PAGE_H},
         "color_scheme": "dark",
     }
 
@@ -133,7 +152,7 @@ def dashboard_url(url: str) -> str:
 
 def warm_up(browser, url: str) -> None:
     """One unrecorded forecast, so the recorded one is as fast as on a warm server."""
-    page = browser.new_page(viewport={"width": WIDTH, "height": HEIGHT})
+    page = browser.new_page(viewport={"width": PAGE_W, "height": PAGE_H})
     page.set_default_timeout(ACTION_TIMEOUT_MS)
     page.goto(dashboard_url(url))
     page.get_by_role("button", name="Run Forecast").click()

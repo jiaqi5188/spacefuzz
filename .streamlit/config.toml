@@ -16,3 +16,7 @@ gatherUsageStats = false   # no telemetry: the app must run with the network off
 
 [server]
 headless = true
+# No source-file watching: after every script run Streamlit rescans all loaded modules on
+# its event loop (thousands with pandas, scipy, plotly, pyarrow; polling, no watchdog);
+# that held back page switches by 7-24 s during a forecast. Restart after code changes.
+fileWatcherType = "none"

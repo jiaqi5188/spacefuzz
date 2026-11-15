@@ -114,7 +114,8 @@ def radiation_figure() -> go.Figure | None:
     for day, f in a2["flares"].items():
         fig.add_vline(x=f["peak_utc"], line=dict(color=PAL["yellow"], dash="dash", width=1))
         fig.add_annotation(x=f["peak_utc"], y=1, yref="paper", showarrow=False, yshift=-8,
-                           text=f"{f['official_class']} flare (GOES)", xanchor="left",
+                           text=f"{f['official_class']} flare (GOES)", xanchor="right",
+                           xshift=-4,     # left of the line, off the red event band
                            font=dict(color=PAL["yellow"], size=11))
     fig.add_annotation(x=a2["spe_end_utc"], y=0.62, yref="paper", xanchor="left",
                        xshift=6, showarrow=False, font=dict(color=PAL["red"], size=11),

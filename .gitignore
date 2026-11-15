@@ -50,6 +50,8 @@ video/*.mp3
 video/*.mp4
 video/build/
 video/clips/
+# photos for the video (third-party licences; sources in docs/submission_links.md)
+video/assets/
 
 # Working documents kept local (docs/ also covers docs/screenshots/)
 docs/

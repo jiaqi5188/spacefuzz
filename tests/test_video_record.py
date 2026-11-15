@@ -6,23 +6,36 @@ from pathlib import Path
 from video import record
 
 
-def test_context_options_are_1080p_at_2x():
+def test_context_options_are_the_14_inch_page_scaled_to_1080p():
+    """manual_v7 11/15 video: the page at 1512x850 (the 14-inch layout the UI was tuned for),
+    2x pixel density, scaled into a 1920x1080 video."""
     opts = record.context_options(Path("raw"))
-    assert opts["viewport"] == {"width": 1920, "height": 1080}
+    assert opts["viewport"] == {"width": 1512, "height": 850}
     assert opts["device_scale_factor"] == 2
-    assert opts["record_video_size"] == {"width": 1920, "height": 1080}
+    # recorded at the page size (Playwright pads, never scales, a larger frame), scaled to
+    # 1080p when cut
+    assert opts["record_video_size"] == {"width": 1512, "height": 850}
+    import inspect as _i
+    assert (record.WIDTH, record.HEIGHT) == (1920, 1080)
+    assert "scale={WIDTH}:{HEIGHT}" in _i.getsource(record.cut_clip)
     assert opts["record_video_dir"] == "raw"
 
 
 def test_shots_follow_the_storyboard_of_the_real_app():
-    """docs/manual_v7.md, 11/15 video: top bar, forecast, adjustment, heatmap, midday."""
-    assert [s.name for s in record.SHOTS] == ["topbar", "forecast", "adjust", "heatmap", "midday"]
+    """docs/manual_v7.md, 11/15 video (rewritten 11/15): the idle dashboard and Run Forecast,
+    the forecast up to 21.0% HIGH, then the flight surgeon and engine screens, each recorded on
+    its own with ?view=...&autoplay=1. Photos and the end card are added when the video is
+    assembled, not recorded here."""
+    assert [s.name for s in record.SHOTS] == ["dashboard_idle", "dashboard_forecast",
+                                              "dashboard_adjust", "surgeon", "engine"]
     src = inspect.getsource(record)
     assert "demo_stub" not in src and "Adjust Plan" not in src and "data-heart" not in src
+    assert "view=surgeon&autoplay=1" in src and "view=engine&autoplay=1" in src
     # waits only on top-level markers, never inside the panels' nested iframes
-    for marker in ("forecast-done", "playback-done", "charts-done", "midday-done"):
+    for marker in ("forecast-done", "playback-done"):
         assert marker in src
     assert "frame_locator" not in src
+    assert "stExpandSidebarButton" not in src            # the menu stays closed on camera
 
 
 def test_server_defaults_to_the_app_at_demo_pace(monkeypatch):

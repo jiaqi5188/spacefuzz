@@ -132,7 +132,10 @@ def heatmap_figure(res: dict, height: int = 400) -> go.Figure:
             notes.insert(0, f"guided boundary {at0[0]:.2f} h · scan {sx:.2f} h "
                             f"({minp['minutes']} min): same edge")
     _layout(fig, height)
-    fig.update_layout(title=dict(text="Crash boundary", font=dict(size=14)), margin=dict(b=90))
+    # legend pinned to the figure's bottom edge (not a share of the plot height): at the engine
+    # screen's 330 px it sat on the x-axis title
+    fig.update_layout(title=dict(text="Crash boundary", font=dict(size=14)), margin=dict(b=95),
+                      legend=dict(yref="container", y=0.0, yanchor="bottom"))
     g, r = config.RISK_GREEN_BELOW, config.RISK_RED_ABOVE
     n = hm.get("samples_per_cell", 0)
     fig.add_annotation(text=f"cell = risk of {n:,} runs", xref="paper", yref="paper", x=0,
@@ -239,6 +242,11 @@ TRENDS = {"heart_rate": "Heart rate", "blood_pressure": "Blood pressure",
 TRENDS_SHORT = {"heart_rate": "Heart", "blood_pressure": "BP", "blood_glucose": "Glucose",
                 "sleep": "Sleep", "reaction_time": "Reaction"}
 TABS_SHORT_BELOW_PX = 395       # the full names need about 380 px
+# Narrower still (menu open on a 14-inch screen, about 260 px): the short words need about
+# 320 px with the default padding, so shorter words, 12 px and less padding
+TRENDS_TINY = {"heart_rate": "HR", "blood_pressure": "BP", "blood_glucose": "Gluc",
+               "sleep": "Sleep", "reaction_time": "React"}
+TABS_TINY_BELOW_PX = 300       # menu open: about 260 px; menu closed: about 330 px
 
 
 def trend_tab_css() -> str:
@@ -246,9 +254,14 @@ def trend_tab_css() -> str:
     tabs always fit on one line: full names when there is room, short words otherwise."""
     short = "".join(f'.st-key-trend_field button:nth-of-type({i}) p::after {{ content:"{v}"; '
                     f'font-size:13px; }}\n' for i, v in enumerate(TRENDS_SHORT.values(), 1))
+    tiny = "".join(f'.st-key-trend_field button:nth-of-type({i}) p::after {{ content:"{v}"; '
+                   f'font-size:12px; }}\n' for i, v in enumerate(TRENDS_TINY.values(), 1))
     return (".st-key-trend_field { container-type:inline-size; width:100%; }\n"
             f"@container (max-width: {TABS_SHORT_BELOW_PX}px) {{\n"
-            ".st-key-trend_field button p { font-size:0; }\n" + short + "}")
+            ".st-key-trend_field button p { font-size:0; }\n" + short + "}\n"
+            f"@container (max-width: {TABS_TINY_BELOW_PX}px) {{\n"
+            ".st-key-trend_field button { padding-left:6px; padding-right:6px; min-width:0; }\n"
+            + tiny + "}")
 
 
 @functools.lru_cache(maxsize=8)
@@ -327,7 +340,8 @@ def trend_figure(s: dict, height: int = 230, today_status: str = "green") -> go.
                                  font=dict(size=12)),
                       legend=dict(orientation="h", y=-0.28, x=0, font=dict(color=MUTED)))
     ticks = list(range(s["days"][0], 1, 2))
-    fig.update_xaxes(tickvals=ticks, ticktext=[("today" if t == 0 else str(t)) for t in ticks])
+    fig.update_xaxes(tickvals=ticks, ticktext=[("today" if t == 0 else str(t)) for t in ticks],
+                     tickangle=0, tickfont=dict(size=11))   # never vertical (narrow, menu open)
     if s.get("threshold_label"):
         fig.add_annotation(text=s["threshold_label"], xref="paper", yref="paper", x=0.94, y=1.02,
                            xanchor="right", showarrow=False, font=dict(color=PAL["yellow"], size=10))
