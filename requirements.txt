@@ -23,6 +23,6 @@ hypothesis==6.170.15
 pytest==9.2.0
 jupyter==1.1.1
 
-# future LLM layer (not imported yet; the key would come from .env)
+# optional AI hint on the check-in page (imported only when used; the key comes from .env)
 python-dotenv==1.2.4
 openai==3.46.0

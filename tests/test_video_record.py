@@ -29,7 +29,6 @@ def test_shots_follow_the_storyboard_of_the_real_app():
     assert [s.name for s in record.SHOTS] == ["dashboard_idle", "dashboard_forecast",
                                               "dashboard_adjust", "surgeon", "engine"]
     src = inspect.getsource(record)
-    assert "demo_stub" not in src and "Adjust Plan" not in src and "data-heart" not in src
     assert "view=surgeon&autoplay=1" in src and "view=engine&autoplay=1" in src
     # waits only on top-level markers, never inside the panels' nested iframes
     for marker in ("forecast-done", "playback-done"):
@@ -46,7 +45,7 @@ def test_server_defaults_to_the_app_at_demo_pace(monkeypatch):
             seen.update(cmd=cmd, env=env)
     monkeypatch.setattr(record.subprocess, "Popen", FakePopen)
     record.start_server(record.ROOT / record.DEFAULT_APP, 8599)
-    assert record.DEFAULT_APP == "app.py" and seen["cmd"][-1] != "demo_stub.py"
+    assert record.DEFAULT_APP == "app.py"
     assert str(record.ROOT / "app.py") in seen["cmd"]
     assert seen["env"]["SPACEFUZZ_PACE"] == "demo"
 

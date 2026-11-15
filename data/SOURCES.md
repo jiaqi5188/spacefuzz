@@ -16,7 +16,7 @@ app runs without the other raw data.
 | 2 | WESAD wearable stress dataset | `wesad/` | University of Siegen | 2026-11-09 | Real heart-rate / HRV fluctuation segments (`physio_replay.py`) |
 | 3 | RadLab DosTel2, ISS Columbus module | `radlab/` | NASA RadLab | 2026-11-09 | LEO dose-rate profile, including South Atlantic Anomaly passes |
 | 4 | RadLab MSL-RAD, Mars surface (Curiosity) | `radlab/` | NASA RadLab | 2026-11-09 | Mars surface dose rate; 2017-09-11 solar particle event shape (operator D) |
-| 5 | Inspiration4 clinical blood and urine panels (OSD-569, OSD-575, OSD-656) | `inspiration4/` | NASA OSDR | 2026-11-09 | Clinical reference ranges and real pre/post-flight changes in civilian crew |
+| 5 | Inspiration4 clinical blood and urine panels (OSD-569, OSD-575, OSD-656: downloaded, not used in the app or analysis) | `inspiration4/` | NASA OSDR | 2026-11-09 | Clinical reference ranges and real pre/post-flight changes in civilian crew |
 | 6 | GOES-16 XRS solar X-ray flux, 1-min averages | `goes/` | NOAA NCEI | 2026-11-09 | Flare timing to label and align the radiation scenarios |
 | 7 | NASA Space Apps 2026 challenge resources (5 web pages, no dataset) | none | NASA, CSA | 2026-11-13 (read, nothing to download) | References only: hazards frame, risk-page links, ARCHeR background, CSA radiation note |
 
@@ -69,7 +69,7 @@ app runs without the other raw data.
 - Links:
   - https://osdr.nasa.gov/bio/repo/data/studies/OSD-569 (Files → Complete Blood Count)
   - https://osdr.nasa.gov/bio/repo/data/studies/OSD-575 (Files → Comprehensive Metabolic Panel)
-  - https://osdr.nasa.gov/bio/repo/data/studies/OSD-656 (Files → Immunoassay)
+  - https://osdr.nasa.gov/bio/repo/data/studies/OSD-656 (Files → Immunoassay; downloaded, not used in the app or analysis)
 - Files (original names kept so they can be traced back to OSDR):
   - `LSDS-7_Complete_Blood_Count_CBC_TRANSFORMED.csv`: 28 rows (4 crew × 7 timepoints), 20 analytes, each with value / `range_min` / `range_max`. Wide format.
   - `LSDS-8_Comprehensive_Metabolic_Panel_CMP.upload_SUBMITTED.csv`: 531 rows, 19 analytes (glucose, BUN, creatinine, electrolytes, liver panel). **Long format** (`ANALYTE, VALUE, RANGE_MIN, RANGE_MAX, UNITS, SUBJECT_ID, SEX, timepoint`); pivoted to wide format before joining with CBC.
